@@ -5,6 +5,7 @@ import mcp_toolkit
 import mcp_toolkit/core/protocol as mcp
 import mcp_toolkit/transport/stdio
 import things_mcp/tools/list_ops
+import things_mcp/tools/move_ops
 import things_mcp/tools/project_ops
 import things_mcp/tools/todo_ops
 import things_mcp/types
@@ -50,6 +51,13 @@ fn build_server() -> mcp_toolkit.Server {
   // Register utility tools
   |> register_list_tags()
   |> register_list_areas()
+  // Register move tools
+  |> register_move_todo()
+  |> register_move_todo_to_project()
+  |> register_move_todo_to_area()
+  |> register_move_project_to_area()
+  |> register_remove_todo_from_project()
+  |> register_remove_project_from_area()
   |> mcp_toolkit.build()
 }
 
@@ -623,5 +631,355 @@ fn handle_list_areas_wrapper(
         ],
         is_error: Some(True),
       ))
+  }
+}
+
+// ===== MOVE TOOL REGISTRATION =====
+
+fn register_move_todo(builder: mcp_toolkit.Builder) -> mcp_toolkit.Builder {
+  let assert Ok(schema) = mcp.tool_input_schema(types.move_todo_schema)
+
+  let tool =
+    mcp.Tool(
+      name: "move_todo",
+      input_schema: schema,
+      description: Some(
+        "Move a todo to a built-in list (Today, Anytime, Someday, Logbook, Trash)",
+      ),
+      annotations: None,
+    )
+
+  mcp_toolkit.add_tool(
+    builder,
+    tool,
+    types.decode_move_todo_args(),
+    handle_move_todo_wrapper,
+  )
+}
+
+fn register_move_todo_to_project(
+  builder: mcp_toolkit.Builder,
+) -> mcp_toolkit.Builder {
+  let assert Ok(schema) = mcp.tool_input_schema(types.move_todo_to_project_schema)
+
+  let tool =
+    mcp.Tool(
+      name: "move_todo_to_project",
+      input_schema: schema,
+      description: Some("Move a todo to a project"),
+      annotations: None,
+    )
+
+  mcp_toolkit.add_tool(
+    builder,
+    tool,
+    types.decode_move_todo_to_project_args(),
+    handle_move_todo_to_project_wrapper,
+  )
+}
+
+fn register_move_todo_to_area(
+  builder: mcp_toolkit.Builder,
+) -> mcp_toolkit.Builder {
+  let assert Ok(schema) = mcp.tool_input_schema(types.move_todo_to_area_schema)
+
+  let tool =
+    mcp.Tool(
+      name: "move_todo_to_area",
+      input_schema: schema,
+      description: Some(
+        "Move a todo to an area (removes from project if currently in one)",
+      ),
+      annotations: None,
+    )
+
+  mcp_toolkit.add_tool(
+    builder,
+    tool,
+    types.decode_move_todo_to_area_args(),
+    handle_move_todo_to_area_wrapper,
+  )
+}
+
+fn register_move_project_to_area(
+  builder: mcp_toolkit.Builder,
+) -> mcp_toolkit.Builder {
+  let assert Ok(schema) = mcp.tool_input_schema(types.move_project_to_area_schema)
+
+  let tool =
+    mcp.Tool(
+      name: "move_project_to_area",
+      input_schema: schema,
+      description: Some("Move a project to an area"),
+      annotations: None,
+    )
+
+  mcp_toolkit.add_tool(
+    builder,
+    tool,
+    types.decode_move_project_to_area_args(),
+    handle_move_project_to_area_wrapper,
+  )
+}
+
+fn register_remove_todo_from_project(
+  builder: mcp_toolkit.Builder,
+) -> mcp_toolkit.Builder {
+  let assert Ok(schema) =
+    mcp.tool_input_schema(types.remove_todo_from_project_schema)
+
+  let tool =
+    mcp.Tool(
+      name: "remove_todo_from_project",
+      input_schema: schema,
+      description: Some("Remove a todo from its project (detach parent)"),
+      annotations: None,
+    )
+
+  mcp_toolkit.add_tool(
+    builder,
+    tool,
+    types.decode_remove_todo_from_project_args(),
+    handle_remove_todo_from_project_wrapper,
+  )
+}
+
+fn register_remove_project_from_area(
+  builder: mcp_toolkit.Builder,
+) -> mcp_toolkit.Builder {
+  let assert Ok(schema) =
+    mcp.tool_input_schema(types.remove_project_from_area_schema)
+
+  let tool =
+    mcp.Tool(
+      name: "remove_project_from_area",
+      input_schema: schema,
+      description: Some("Remove a project from its area (detach parent)"),
+      annotations: None,
+    )
+
+  mcp_toolkit.add_tool(
+    builder,
+    tool,
+    types.decode_remove_project_from_area_args(),
+    handle_remove_project_from_area_wrapper,
+  )
+}
+
+// ===== MOVE HANDLER WRAPPERS =====
+
+fn handle_move_todo_wrapper(
+  request: mcp.CallToolRequest(types.MoveTodoArgs),
+) -> Result(mcp.CallToolResult, String) {
+  case request.arguments {
+    Some(args) -> {
+      case move_ops.handle_move_todo(args) {
+        Ok(output) ->
+          Ok(mcp.CallToolResult(
+            meta: None,
+            content: [
+              mcp.TextToolContent(mcp.TextContent(
+                type_: "text",
+                text: output,
+                annotations: None,
+              )),
+            ],
+            is_error: None,
+          ))
+        Error(err) ->
+          Ok(mcp.CallToolResult(
+            meta: None,
+            content: [
+              mcp.TextToolContent(mcp.TextContent(
+                type_: "text",
+                text: err,
+                annotations: None,
+              )),
+            ],
+            is_error: Some(True),
+          ))
+      }
+    }
+    None -> Error("No arguments provided")
+  }
+}
+
+fn handle_move_todo_to_project_wrapper(
+  request: mcp.CallToolRequest(types.MoveTodoToProjectArgs),
+) -> Result(mcp.CallToolResult, String) {
+  case request.arguments {
+    Some(args) -> {
+      case move_ops.handle_move_todo_to_project(args) {
+        Ok(output) ->
+          Ok(mcp.CallToolResult(
+            meta: None,
+            content: [
+              mcp.TextToolContent(mcp.TextContent(
+                type_: "text",
+                text: output,
+                annotations: None,
+              )),
+            ],
+            is_error: None,
+          ))
+        Error(err) ->
+          Ok(mcp.CallToolResult(
+            meta: None,
+            content: [
+              mcp.TextToolContent(mcp.TextContent(
+                type_: "text",
+                text: err,
+                annotations: None,
+              )),
+            ],
+            is_error: Some(True),
+          ))
+      }
+    }
+    None -> Error("No arguments provided")
+  }
+}
+
+fn handle_move_todo_to_area_wrapper(
+  request: mcp.CallToolRequest(types.MoveTodoToAreaArgs),
+) -> Result(mcp.CallToolResult, String) {
+  case request.arguments {
+    Some(args) -> {
+      case move_ops.handle_move_todo_to_area(args) {
+        Ok(output) ->
+          Ok(mcp.CallToolResult(
+            meta: None,
+            content: [
+              mcp.TextToolContent(mcp.TextContent(
+                type_: "text",
+                text: output,
+                annotations: None,
+              )),
+            ],
+            is_error: None,
+          ))
+        Error(err) ->
+          Ok(mcp.CallToolResult(
+            meta: None,
+            content: [
+              mcp.TextToolContent(mcp.TextContent(
+                type_: "text",
+                text: err,
+                annotations: None,
+              )),
+            ],
+            is_error: Some(True),
+          ))
+      }
+    }
+    None -> Error("No arguments provided")
+  }
+}
+
+fn handle_move_project_to_area_wrapper(
+  request: mcp.CallToolRequest(types.MoveProjectToAreaArgs),
+) -> Result(mcp.CallToolResult, String) {
+  case request.arguments {
+    Some(args) -> {
+      case move_ops.handle_move_project_to_area(args) {
+        Ok(output) ->
+          Ok(mcp.CallToolResult(
+            meta: None,
+            content: [
+              mcp.TextToolContent(mcp.TextContent(
+                type_: "text",
+                text: output,
+                annotations: None,
+              )),
+            ],
+            is_error: None,
+          ))
+        Error(err) ->
+          Ok(mcp.CallToolResult(
+            meta: None,
+            content: [
+              mcp.TextToolContent(mcp.TextContent(
+                type_: "text",
+                text: err,
+                annotations: None,
+              )),
+            ],
+            is_error: Some(True),
+          ))
+      }
+    }
+    None -> Error("No arguments provided")
+  }
+}
+
+fn handle_remove_todo_from_project_wrapper(
+  request: mcp.CallToolRequest(types.RemoveTodoFromProjectArgs),
+) -> Result(mcp.CallToolResult, String) {
+  case request.arguments {
+    Some(args) -> {
+      case move_ops.handle_remove_todo_from_project(args) {
+        Ok(output) ->
+          Ok(mcp.CallToolResult(
+            meta: None,
+            content: [
+              mcp.TextToolContent(mcp.TextContent(
+                type_: "text",
+                text: output,
+                annotations: None,
+              )),
+            ],
+            is_error: None,
+          ))
+        Error(err) ->
+          Ok(mcp.CallToolResult(
+            meta: None,
+            content: [
+              mcp.TextToolContent(mcp.TextContent(
+                type_: "text",
+                text: err,
+                annotations: None,
+              )),
+            ],
+            is_error: Some(True),
+          ))
+      }
+    }
+    None -> Error("No arguments provided")
+  }
+}
+
+fn handle_remove_project_from_area_wrapper(
+  request: mcp.CallToolRequest(types.RemoveProjectFromAreaArgs),
+) -> Result(mcp.CallToolResult, String) {
+  case request.arguments {
+    Some(args) -> {
+      case move_ops.handle_remove_project_from_area(args) {
+        Ok(output) ->
+          Ok(mcp.CallToolResult(
+            meta: None,
+            content: [
+              mcp.TextToolContent(mcp.TextContent(
+                type_: "text",
+                text: output,
+                annotations: None,
+              )),
+            ],
+            is_error: None,
+          ))
+        Error(err) ->
+          Ok(mcp.CallToolResult(
+            meta: None,
+            content: [
+              mcp.TextToolContent(mcp.TextContent(
+                type_: "text",
+                text: err,
+                annotations: None,
+              )),
+            ],
+            is_error: Some(True),
+          ))
+      }
+    }
+    None -> Error("No arguments provided")
   }
 }

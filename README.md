@@ -23,6 +23,15 @@ An MCP (Model Context Protocol) server for interacting with Things3 task manager
 - **list_tags** - List all available tags
 - **list_areas** - List all areas
 
+### Move Operations (6 tools)
+
+- **move_todo** - Move a todo to a built-in list (Today, Anytime, Someday, Logbook, Trash)
+- **move_todo_to_project** - Move a todo to a project
+- **move_todo_to_area** - Move a todo to an area (removes from project if any)
+- **move_project_to_area** - Move a project to an area
+- **remove_todo_from_project** - Remove a todo from its project (detach parent)
+- **remove_project_from_area** - Remove a project from its area (detach parent)
+
 ## Requirements
 
 - macOS (required for AppleScript)
@@ -68,6 +77,10 @@ An MCP (Model Context Protocol) server for interacting with Things3 task manager
    - "Show me all todos in the Q1 Planning project"
    - "What tags do I have?"
    - "List all my areas"
+   - "Move the 'Buy groceries' todo to Today"
+   - "Move the 'Write report' todo to the Work project"
+   - "Move the Budget project to the Home area"
+   - "Remove the 'Team meeting' todo from its project"
 
 ## Manual Testing
 
@@ -190,6 +203,58 @@ Then you can call tools:
 {} // no arguments required
 ```
 
+### move_todo
+
+```json
+{
+  "name": "Test Todo", // required
+  "list": "Today" // required (Today, Anytime, Someday, Logbook, Trash)
+}
+```
+
+### move_todo_to_project
+
+```json
+{
+  "name": "Test Todo", // required
+  "project": "Work Project" // required
+}
+```
+
+### move_todo_to_area
+
+```json
+{
+  "name": "Test Todo", // required
+  "area": "Home" // required (removes from project if any)
+}
+```
+
+### move_project_to_area
+
+```json
+{
+  "name": "My Project", // required
+  "area": "Work" // required
+}
+```
+
+### remove_todo_from_project
+
+```json
+{
+  "name": "Test Todo" // required
+}
+```
+
+### remove_project_from_area
+
+```json
+{
+  "name": "My Project" // required
+}
+```
+
 ## Development
 
 ### Project Structure
@@ -202,7 +267,8 @@ src/
 │   ├── tools/
 │   │   ├── todo_ops.gleam     # Todo tool implementations
 │   │   ├── project_ops.gleam  # Project tool implementations
-│   │   └── list_ops.gleam     # List/utility tool implementations
+│   │   ├── list_ops.gleam     # List/utility tool implementations
+│   │   └── move_ops.gleam     # Move tool implementations
 │   └── types.gleam            # Type definitions and decoders
 ```
 
@@ -236,11 +302,12 @@ The server is built using:
 The architecture follows a clean separation of concerns:
 
 1. **applescript.gleam** - Low-level AppleScript execution via osascript
-2. **types.gleam** - Type definitions, JSON schemas, and decoders for all 10 tools
+2. **types.gleam** - Type definitions, JSON schemas, and decoders for all 16 tools
 3. **todo_ops.gleam** - Business logic for todo operations (5 tools)
 4. **project_ops.gleam** - Business logic for project operations (3 tools)
 5. **list_ops.gleam** - Business logic for utility operations (2 tools)
-6. **things_mcp.gleam** - MCP server assembly and message loop
+6. **move_ops.gleam** - Business logic for move operations (6 tools)
+7. **things_mcp.gleam** - MCP server assembly and message loop
 
 ## Error Handling
 
@@ -264,6 +331,5 @@ Potential additions (not currently implemented):
 - Batch operations (complete multiple todos at once)
 - Delete operations (delete todo, delete project)
 - Checklist item support (add/remove checklist items)
-- Move operations (move todo to project/area)
 - Things3 URL scheme integration
 - Recurring todo management

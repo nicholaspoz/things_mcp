@@ -298,3 +298,164 @@ pub const list_areas_schema = "{
   \"type\": \"object\",
   \"properties\": {}
 }"
+
+// ===== MOVE TODO =====
+
+pub type MoveTodoArgs {
+  MoveTodoArgs(name: String, list: String)
+}
+
+pub fn decode_move_todo_args() -> decode.Decoder(MoveTodoArgs) {
+  use name <- decode.field("name", decode.string)
+  use list <- decode.field("list", decode.string)
+  decode.success(MoveTodoArgs(name: name, list: list))
+}
+
+pub const move_todo_schema = "{
+  \"type\": \"object\",
+  \"properties\": {
+    \"name\": {
+      \"type\": \"string\",
+      \"description\": \"Name of the todo to move\"
+    },
+    \"list\": {
+      \"type\": \"string\",
+      \"enum\": [\"Today\", \"Anytime\", \"Someday\", \"Logbook\", \"Trash\"],
+      \"description\": \"Target list to move the todo to\"
+    }
+  },
+  \"required\": [\"name\", \"list\"]
+}"
+
+// ===== MOVE TODO TO PROJECT =====
+
+pub type MoveTodoToProjectArgs {
+  MoveTodoToProjectArgs(name: String, project: String)
+}
+
+pub fn decode_move_todo_to_project_args() -> decode.Decoder(
+  MoveTodoToProjectArgs,
+) {
+  use name <- decode.field("name", decode.string)
+  use project <- decode.field("project", decode.string)
+  decode.success(MoveTodoToProjectArgs(name: name, project: project))
+}
+
+pub const move_todo_to_project_schema = "{
+  \"type\": \"object\",
+  \"properties\": {
+    \"name\": {
+      \"type\": \"string\",
+      \"description\": \"Name of the todo to move\"
+    },
+    \"project\": {
+      \"type\": \"string\",
+      \"description\": \"Name of the project to move the todo to\"
+    }
+  },
+  \"required\": [\"name\", \"project\"]
+}"
+
+// ===== MOVE TODO TO AREA =====
+
+pub type MoveTodoToAreaArgs {
+  MoveTodoToAreaArgs(name: String, area: String)
+}
+
+pub fn decode_move_todo_to_area_args() -> decode.Decoder(MoveTodoToAreaArgs) {
+  use name <- decode.field("name", decode.string)
+  use area <- decode.field("area", decode.string)
+  decode.success(MoveTodoToAreaArgs(name: name, area: area))
+}
+
+pub const move_todo_to_area_schema = "{
+  \"type\": \"object\",
+  \"properties\": {
+    \"name\": {
+      \"type\": \"string\",
+      \"description\": \"Name of the todo to move\"
+    },
+    \"area\": {
+      \"type\": \"string\",
+      \"description\": \"Name of the area to move the todo to (will remove from project if any)\"
+    }
+  },
+  \"required\": [\"name\", \"area\"]
+}"
+
+// ===== MOVE PROJECT TO AREA =====
+
+pub type MoveProjectToAreaArgs {
+  MoveProjectToAreaArgs(name: String, area: String)
+}
+
+pub fn decode_move_project_to_area_args() -> decode.Decoder(
+  MoveProjectToAreaArgs,
+) {
+  use name <- decode.field("name", decode.string)
+  use area <- decode.field("area", decode.string)
+  decode.success(MoveProjectToAreaArgs(name: name, area: area))
+}
+
+pub const move_project_to_area_schema = "{
+  \"type\": \"object\",
+  \"properties\": {
+    \"name\": {
+      \"type\": \"string\",
+      \"description\": \"Name of the project to move\"
+    },
+    \"area\": {
+      \"type\": \"string\",
+      \"description\": \"Name of the area to move the project to\"
+    }
+  },
+  \"required\": [\"name\", \"area\"]
+}"
+
+// ===== REMOVE TODO FROM PROJECT =====
+
+pub type RemoveTodoFromProjectArgs {
+  RemoveTodoFromProjectArgs(name: String)
+}
+
+pub fn decode_remove_todo_from_project_args() -> decode.Decoder(
+  RemoveTodoFromProjectArgs,
+) {
+  use name <- decode.field("name", decode.string)
+  decode.success(RemoveTodoFromProjectArgs(name: name))
+}
+
+pub const remove_todo_from_project_schema = "{
+  \"type\": \"object\",
+  \"properties\": {
+    \"name\": {
+      \"type\": \"string\",
+      \"description\": \"Name of the todo to remove from its project\"
+    }
+  },
+  \"required\": [\"name\"]
+}"
+
+// ===== REMOVE PROJECT FROM AREA =====
+
+pub type RemoveProjectFromAreaArgs {
+  RemoveProjectFromAreaArgs(name: String)
+}
+
+pub fn decode_remove_project_from_area_args() -> decode.Decoder(
+  RemoveProjectFromAreaArgs,
+) {
+  use name <- decode.field("name", decode.string)
+  decode.success(RemoveProjectFromAreaArgs(name: name))
+}
+
+pub const remove_project_from_area_schema = "{
+  \"type\": \"object\",
+  \"properties\": {
+    \"name\": {
+      \"type\": \"string\",
+      \"description\": \"Name of the project to remove from its area\"
+    }
+  },
+  \"required\": [\"name\"]
+}"
