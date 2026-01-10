@@ -5,6 +5,7 @@ An MCP (Model Context Protocol) server for interacting with Things3 task manager
 ## Features
 
 ### Todo Operations (5 tools)
+
 - **create_todo** - Create a new todo with optional notes, due date, tags, and target list
 - **list_todos** - List todos from a specific list (Inbox, Today, Anytime, Upcoming, Someday, Logbook)
 - **complete_todo** - Mark a todo as completed
@@ -12,11 +13,13 @@ An MCP (Model Context Protocol) server for interacting with Things3 task manager
 - **search_todos** - Search for todos across all lists by name
 
 ### Project Operations (3 tools)
+
 - **create_project** - Create a new project with optional notes and area
 - **list_projects** - List all projects with optional area filter
 - **get_project_todos** - Get all todos within a specific project
 
 ### Utility Operations (2 tools)
+
 - **list_tags** - List all available tags
 - **list_areas** - List all areas
 
@@ -77,7 +80,16 @@ gleam run
 Then send an initialize request (the MCP protocol requires initialization first):
 
 ```json
-{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "initialize",
+  "params": {
+    "protocolVersion": "2024-11-05",
+    "capabilities": {},
+    "clientInfo": { "name": "test", "version": "1.0" }
+  }
+}
 ```
 
 Then you can call tools:
@@ -94,11 +106,11 @@ Then you can call tools:
 
 ```json
 {
-  "name": "Test Todo",         // required
-  "notes": "Optional notes",   // optional
-  "due_date": "2026-01-15",   // optional (YYYY-MM-DD)
-  "tags": ["work", "urgent"],  // optional
-  "list": "Inbox"             // optional (Inbox, Today, Anytime, Someday)
+  "name": "Test Todo", // required
+  "notes": "Optional notes", // optional
+  "due_date": "2026-01-15", // optional (YYYY-MM-DD)
+  "tags": ["work", "urgent"], // optional
+  "list": "Inbox" // optional (Inbox, Today, Anytime, Someday)
 }
 ```
 
@@ -106,8 +118,8 @@ Then you can call tools:
 
 ```json
 {
-  "location": "Today",  // optional (Inbox, Today, Anytime, Upcoming, Someday, Logbook)
-  "status": "open"     // optional (open, completed, all)
+  "location": "Today", // optional (Inbox, Today, Anytime, Upcoming, Someday, Logbook)
+  "status": "open" // optional (open, completed, all)
 }
 ```
 
@@ -115,7 +127,7 @@ Then you can call tools:
 
 ```json
 {
-  "name": "Test Todo"  // required
+  "name": "Test Todo" // required
 }
 ```
 
@@ -123,11 +135,11 @@ Then you can call tools:
 
 ```json
 {
-  "name": "Test Todo",             // required (current name)
-  "new_name": "Updated Todo",      // optional
-  "new_notes": "New notes",        // optional
-  "new_due_date": "2026-01-20",   // optional (or "none" to clear)
-  "new_tags": ["work"]            // optional
+  "name": "Test Todo", // required (current name)
+  "new_name": "Updated Todo", // optional
+  "new_notes": "New notes", // optional
+  "new_due_date": "2026-01-20", // optional (or "none" to clear)
+  "new_tags": ["work"] // optional
 }
 ```
 
@@ -135,7 +147,7 @@ Then you can call tools:
 
 ```json
 {
-  "query": "meeting"  // required
+  "query": "meeting" // required
 }
 ```
 
@@ -143,9 +155,9 @@ Then you can call tools:
 
 ```json
 {
-  "name": "Q1 Planning",         // required
-  "notes": "Optional notes",     // optional
-  "area": "Work"                 // optional (area name)
+  "name": "Q1 Planning", // required
+  "notes": "Optional notes", // optional
+  "area": "Work" // optional (area name)
 }
 ```
 
@@ -153,7 +165,7 @@ Then you can call tools:
 
 ```json
 {
-  "area": "Work"  // optional (filter by area)
+  "area": "Work" // optional (filter by area)
 }
 ```
 
@@ -161,21 +173,21 @@ Then you can call tools:
 
 ```json
 {
-  "project": "Q1 Planning",  // required
-  "status": "open"           // optional (open, completed, all)
+  "project": "Q1 Planning", // required
+  "status": "open" // optional (open, completed, all)
 }
 ```
 
 ### list_tags
 
 ```json
-{}  // no arguments required
+{} // no arguments required
 ```
 
 ### list_areas
 
 ```json
-{}  // no arguments required
+{} // no arguments required
 ```
 
 ## Development
@@ -215,12 +227,14 @@ gleam test
 ## Architecture
 
 The server is built using:
+
 - **mcp_toolkit** (v0.3.1) - MCP protocol implementation
 - **shellout** (v1.7) - For executing osascript commands
 - **gleam_json** (v3.x) - JSON encoding/decoding
 - **gleam/dynamic/decode** - Type-safe argument decoding
 
 The architecture follows a clean separation of concerns:
+
 1. **applescript.gleam** - Low-level AppleScript execution via osascript
 2. **types.gleam** - Type definitions, JSON schemas, and decoders for all 10 tools
 3. **todo_ops.gleam** - Business logic for todo operations (5 tools)
@@ -231,6 +245,7 @@ The architecture follows a clean separation of concerns:
 ## Error Handling
 
 The server uses basic error handling that passes through raw AppleScript errors:
+
 - If Things3 is not running: "Application isn't running"
 - If a todo is not found: "Can't get to do named..."
 - If a date format is invalid: "Can't make date..."
@@ -239,7 +254,10 @@ All errors are returned in the MCP response with `is_error: true`.
 
 ## Future Enhancements
 
+See the [Things3 developer documentation](https://culturedcode.com/things/support/articles/4562654/) for more information on supported AppleScript commands.
+
 Potential additions (not currently implemented):
+
 - Area operations (create area, get todos in area)
 - Tag operations (create tag, manage tag hierarchy)
 - Advanced date parsing ("tomorrow", "next week")
