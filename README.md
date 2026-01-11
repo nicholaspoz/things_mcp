@@ -290,6 +290,16 @@ gleam run
 gleam test
 ```
 
+The test suite includes comprehensive integration tests that:
+- Test all 16 MCP tools with real Things3 operations
+- Use unique `__TEST_*` prefixes to avoid conflicting with user data
+- Automatically clean up all test data (even if tests fail)
+- Leave no trace in your Things3 database
+
+Test structure:
+- `test/integration_test.gleam` - Full integration test covering all 16 tools
+- `test/test_helpers/` - State tracking, assertions, and cleanup utilities
+
 ## Architecture
 
 The server is built using:
