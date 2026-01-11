@@ -202,7 +202,11 @@ pub fn handle_search_todos(
       end try
     end repeat
 
-    return allTodos as string
+    if (count of allTodos) is 0 then
+      return \"\"
+    else
+      return allTodos as string
+    end if
   "
 
   applescript.execute(applescript.tell_things(command))
