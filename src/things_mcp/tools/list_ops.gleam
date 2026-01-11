@@ -6,7 +6,8 @@ import things_mcp/types
 
 pub fn handle_list_tags(_args: types.ListTagsArgs) -> Result(String, String) {
   // Build AppleScript to get all tags
-  let command = "
+  let command =
+    "
     set tagList to {}
     repeat with theTag in tags
       try
@@ -25,7 +26,8 @@ pub fn handle_list_tags(_args: types.ListTagsArgs) -> Result(String, String) {
 
 pub fn handle_list_areas(_args: types.ListAreasArgs) -> Result(String, String) {
   // Build AppleScript to get all areas
-  let command = "
+  let command =
+    "
     set areaList to {}
     repeat with theArea in areas
       try

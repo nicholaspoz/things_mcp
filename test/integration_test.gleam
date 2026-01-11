@@ -2,7 +2,6 @@ import gleam/io
 import gleam/option.{None, Some}
 import gleam/result
 import gleam/string
-import gleeunit
 import test_helpers/assertions as a
 import test_helpers/cleanup
 import test_helpers/test_state
@@ -12,35 +11,31 @@ import things_mcp/tools/project_ops
 import things_mcp/tools/todo_ops
 import things_mcp/types
 
-pub fn main() {
-  gleeunit.main()
-}
-
 /// Main integration test that covers all 16 tools
 pub fn full_integration_test() {
   io.println("\n╔════════════════════════════════════════════════╗")
-  io.println("║  Things3 MCP Integration Test Suite          ║")
-  io.println("║  Testing all 16 tools with cleanup           ║")
+  io.println("║  Things3 MCP Integration Test Suite            ║")
+  io.println("║  Testing all 16 tools with cleanup             ║")
   io.println("╚════════════════════════════════════════════════╝")
 
   // Create test state tracker
   let state = test_state.new()
 
-  // Run emergency cleanup first to remove any orphaned test data
-  let _cleanup_result = cleanup.emergency_cleanup()
+  // Run comprehensive cleanup first to remove any orphaned test data
+  let _cleanup_result = cleanup.comprehensive_cleanup()
 
   // Run all tests and capture final state
   let test_result = run_all_tests(state)
 
   // CRITICAL: Always cleanup, even if tests fail
-  // Use emergency cleanup which finds ALL test entities, not just tracked ones
-  let _cleanup_result = cleanup.emergency_cleanup()
+  // Use comprehensive cleanup which finds ALL test entities, not just tracked ones
+  let _cleanup_result = cleanup.comprehensive_cleanup()
 
   // Assert that tests passed
   case test_result {
     Ok(_) -> {
       io.println("\n╔════════════════════════════════════════════════╗")
-      io.println("║  ✓ ALL INTEGRATION TESTS PASSED               ║")
+      io.println("║  ✓ ALL INTEGRATION TESTS PASSED                ║")
       io.println("╚════════════════════════════════════════════════╝")
     }
     Error(err) -> {
@@ -54,7 +49,9 @@ pub fn full_integration_test() {
 }
 
 /// Run all test phases
-fn run_all_tests(state: test_state.TestState) -> Result(test_state.TestState, String) {
+fn run_all_tests(
+  state: test_state.TestState,
+) -> Result(test_state.TestState, String) {
   use state <- result.try(phase1_list_operations(state))
   use state <- result.try(phase2_create_operations(state))
   use state <- result.try(phase3_search_and_verify(state))
@@ -240,11 +237,7 @@ fn phase3_search_and_verify(
     ))
     |> a.assert_ok("List Inbox todos"),
   )
-  use _ <- result.try(a.assert_contains(
-    inbox_list,
-    todo1,
-    "Todo1 is in Inbox",
-  ))
+  use _ <- result.try(a.assert_contains(inbox_list, todo1, "Todo1 is in Inbox"))
 
   // Test list_projects with projects present
   a.print_phase("Test: Verify projects exist")
@@ -299,10 +292,7 @@ fn phase5_move_operations(
   // Test move_todo (Tool #12)
   a.print_phase("Test: move_todo (Inbox -> Today)")
   use _result <- result.try(
-    move_ops.handle_move_todo(types.MoveTodoArgs(
-      name: todo1,
-      list: "Today",
-    ))
+    move_ops.handle_move_todo(types.MoveTodoArgs(name: todo1, list: "Today"))
     |> a.assert_ok("Move todo1 from Inbox to Today"),
   )
 
@@ -348,9 +338,9 @@ fn phase5_move_operations(
   // Test remove_todo_from_project (Tool #15)
   a.print_phase("Test: remove_todo_from_project")
   use _result <- result.try(
-    move_ops.handle_remove_todo_from_project(
-      types.RemoveTodoFromProjectArgs(name: todo1),
-    )
+    move_ops.handle_remove_todo_from_project(types.RemoveTodoFromProjectArgs(
+      name: todo1,
+    ))
     |> a.assert_ok("Remove todo1 from project1"),
   )
 

@@ -357,7 +357,9 @@ fn register_create_project(builder: mcp_toolkit.Builder) -> mcp_toolkit.Builder 
     mcp.Tool(
       name: "create_project",
       input_schema: schema,
-      description: Some("Create a new project in Things3 with optional notes and area"),
+      description: Some(
+        "Create a new project in Things3 with optional notes and area",
+      ),
       annotations: None,
     )
 
@@ -660,7 +662,8 @@ fn register_move_todo(builder: mcp_toolkit.Builder) -> mcp_toolkit.Builder {
 fn register_move_todo_to_project(
   builder: mcp_toolkit.Builder,
 ) -> mcp_toolkit.Builder {
-  let assert Ok(schema) = mcp.tool_input_schema(types.move_todo_to_project_schema)
+  let assert Ok(schema) =
+    mcp.tool_input_schema(types.move_todo_to_project_schema)
 
   let tool =
     mcp.Tool(
@@ -704,7 +707,8 @@ fn register_move_todo_to_area(
 fn register_move_project_to_area(
   builder: mcp_toolkit.Builder,
 ) -> mcp_toolkit.Builder {
-  let assert Ok(schema) = mcp.tool_input_schema(types.move_project_to_area_schema)
+  let assert Ok(schema) =
+    mcp.tool_input_schema(types.move_project_to_area_schema)
 
   let tool =
     mcp.Tool(

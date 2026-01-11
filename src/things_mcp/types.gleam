@@ -125,8 +125,14 @@ pub fn decode_update_todo_args() -> decode.Decoder(UpdateTodoArgs) {
   use name <- decode.field("name", decode.string)
   use new_name <- decode.field("new_name", decode.optional(decode.string))
   use new_notes <- decode.field("new_notes", decode.optional(decode.string))
-  use new_due_date <- decode.field("new_due_date", decode.optional(decode.string))
-  use new_tags <- decode.field("new_tags", decode.optional(decode.list(decode.string)))
+  use new_due_date <- decode.field(
+    "new_due_date",
+    decode.optional(decode.string),
+  )
+  use new_tags <- decode.field(
+    "new_tags",
+    decode.optional(decode.list(decode.string)),
+  )
   decode.success(UpdateTodoArgs(
     name: name,
     new_name: new_name,

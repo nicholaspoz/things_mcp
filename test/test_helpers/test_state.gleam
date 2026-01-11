@@ -7,11 +7,7 @@ fn system_time_ms() -> Int
 
 /// Tracks created entities for cleanup
 pub type TestState {
-  TestState(
-    todos: List(String),
-    projects: List(String),
-    timestamp: String,
-  )
+  TestState(todos: List(String), projects: List(String), timestamp: String)
 }
 
 /// Create a new test state tracker with a unique timestamp

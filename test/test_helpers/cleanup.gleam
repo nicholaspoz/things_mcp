@@ -105,7 +105,8 @@ fn verify_cleanup(_state: test_state.TestState) -> Result(Nil, String) {
   io.println("\nVerifying cleanup...")
 
   // Search for any remaining test entities
-  let search_command = "
+  let search_command =
+    "
     set allTodos to {}
     repeat with listName in {\"Inbox\", \"Today\", \"Anytime\", \"Someday\"}
       try
@@ -146,14 +147,15 @@ fn verify_cleanup(_state: test_state.TestState) -> Result(Nil, String) {
   }
 }
 
-/// Emergency cleanup - finds and removes ALL entities with __TEST_ prefix
+/// Comprehensive cleanup - finds and removes ALL entities with __TEST_ prefix
 /// Use this if tests fail and leave orphaned data
-pub fn emergency_cleanup() -> Result(Nil, String) {
-  io.println("\n=== EMERGENCY CLEANUP ===")
+pub fn comprehensive_cleanup() -> Result(Nil, String) {
+  io.println("\n=== COMPREHENSIVE CLEANUP ===")
   io.println("Searching for all test entities...")
 
   // Find and trash all test todos
-  let todo_cleanup = "
+  let todo_cleanup =
+    "
     repeat with listName in {\"Inbox\", \"Today\", \"Anytime\", \"Someday\"}
       try
         set theList to list listName
@@ -177,7 +179,8 @@ pub fn emergency_cleanup() -> Result(Nil, String) {
 
   // Find and delete all test projects
   // Can't delete while iterating, so collect names first then delete
-  let project_cleanup = "
+  let project_cleanup =
+    "
     set projectsToDelete to {}
     repeat with proj in projects
       try
@@ -202,6 +205,6 @@ pub fn emergency_cleanup() -> Result(Nil, String) {
     Error(err) -> io.println("  ⚠ Failed to clean projects: " <> err)
   }
 
-  io.println("\n✓ Emergency cleanup complete")
+  io.println("\n✓ Comprehensive cleanup complete")
   Ok(Nil)
 }

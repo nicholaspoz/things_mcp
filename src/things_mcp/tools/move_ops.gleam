@@ -7,11 +7,7 @@ import things_mcp/types
 pub fn handle_move_todo(args: types.MoveTodoArgs) -> Result(String, String) {
   // Use the move command to relocate todo to a built-in list
   let command =
-    "move to do named \""
-    <> args.name
-    <> "\" to list \""
-    <> args.list
-    <> "\""
+    "move to do named \"" <> args.name <> "\" to list \"" <> args.list <> "\""
 
   applescript.execute(applescript.tell_things(command))
   |> result.map(fn(_output) {

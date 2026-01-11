@@ -21,7 +21,8 @@ pub fn handle_create_project(
   }
 
   let props = case args.area {
-    Some(area) -> list.append(props, [#("area", "area " <> applescript.quote_string(area))])
+    Some(area) ->
+      list.append(props, [#("area", "area " <> applescript.quote_string(area))])
     None -> props
   }
 
@@ -43,8 +44,7 @@ pub fn handle_list_projects(
 ) -> Result(String, String) {
   // Build AppleScript to get projects with properties
   let command = case args.area {
-    Some(area) ->
-      "
+    Some(area) -> "
     set projectList to {}
     try
       set theArea to area \"" <> area <> "\"

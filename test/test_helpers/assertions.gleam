@@ -1,9 +1,11 @@
 import gleam/io
-import gleam/result
 import gleam/string
 
 /// Assert that a Result is Ok
-pub fn assert_ok(result: Result(a, String), context: String) -> Result(a, String) {
+pub fn assert_ok(
+  result: Result(a, String),
+  context: String,
+) -> Result(a, String) {
   case result {
     Ok(value) -> {
       io.println("  ✓ " <> context)
@@ -58,7 +60,10 @@ pub fn assert_not_contains(
 }
 
 /// Assert that a Result is an Error
-pub fn assert_error(result: Result(a, String), context: String) -> Result(Nil, String) {
+pub fn assert_error(
+  result: Result(a, String),
+  context: String,
+) -> Result(Nil, String) {
   case result {
     Error(_) -> {
       io.println("  ✓ " <> context <> " (expected error)")
@@ -80,12 +85,4 @@ pub fn print_section(title: String) -> Nil {
 /// Print a test phase header
 pub fn print_phase(title: String) -> Nil {
   io.println("\n--- " <> title <> " ---")
-}
-
-/// Chain result operations
-pub fn and_then(
-  result: Result(a, String),
-  next: fn(a) -> Result(b, String),
-) -> Result(b, String) {
-  result.try(result, next)
 }
