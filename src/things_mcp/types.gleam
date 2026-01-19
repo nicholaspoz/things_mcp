@@ -1,5 +1,5 @@
 import gleam/dynamic/decode
-import gleam/option.{type Option}
+import gleam/option.{type Option, None}
 
 // ===== CREATE TODO =====
 
@@ -15,10 +15,10 @@ pub type CreateTodoArgs {
 
 pub fn decode_create_todo_args() -> decode.Decoder(CreateTodoArgs) {
   use name <- decode.field("name", decode.string)
-  use notes <- decode.field("notes", decode.optional(decode.string))
-  use due_date <- decode.field("due_date", decode.optional(decode.string))
-  use tags <- decode.field("tags", decode.optional(decode.list(decode.string)))
-  use list <- decode.field("list", decode.optional(decode.string))
+  use notes <- decode.optional_field("notes", None, decode.optional(decode.string))
+  use due_date <- decode.optional_field("due_date", None, decode.optional(decode.string))
+  use tags <- decode.optional_field("tags", None, decode.optional(decode.list(decode.string)))
+  use list <- decode.optional_field("list", None, decode.optional(decode.string))
   decode.success(CreateTodoArgs(
     name: name,
     notes: notes,
@@ -66,8 +66,8 @@ pub type ListTodosArgs {
 }
 
 pub fn decode_list_todos_args() -> decode.Decoder(ListTodosArgs) {
-  use location <- decode.field("location", decode.optional(decode.string))
-  use status <- decode.field("status", decode.optional(decode.string))
+  use location <- decode.optional_field("location", None, decode.optional(decode.string))
+  use status <- decode.optional_field("status", None, decode.optional(decode.string))
   decode.success(ListTodosArgs(location: location, status: status))
 }
 
@@ -123,16 +123,10 @@ pub type UpdateTodoArgs {
 
 pub fn decode_update_todo_args() -> decode.Decoder(UpdateTodoArgs) {
   use name <- decode.field("name", decode.string)
-  use new_name <- decode.field("new_name", decode.optional(decode.string))
-  use new_notes <- decode.field("new_notes", decode.optional(decode.string))
-  use new_due_date <- decode.field(
-    "new_due_date",
-    decode.optional(decode.string),
-  )
-  use new_tags <- decode.field(
-    "new_tags",
-    decode.optional(decode.list(decode.string)),
-  )
+  use new_name <- decode.optional_field("new_name", None, decode.optional(decode.string))
+  use new_notes <- decode.optional_field("new_notes", None, decode.optional(decode.string))
+  use new_due_date <- decode.optional_field("new_due_date", None, decode.optional(decode.string))
+  use new_tags <- decode.optional_field("new_tags", None, decode.optional(decode.list(decode.string)))
   decode.success(UpdateTodoArgs(
     name: name,
     new_name: new_name,
@@ -202,8 +196,8 @@ pub type CreateProjectArgs {
 
 pub fn decode_create_project_args() -> decode.Decoder(CreateProjectArgs) {
   use name <- decode.field("name", decode.string)
-  use notes <- decode.field("notes", decode.optional(decode.string))
-  use area <- decode.field("area", decode.optional(decode.string))
+  use notes <- decode.optional_field("notes", None, decode.optional(decode.string))
+  use area <- decode.optional_field("area", None, decode.optional(decode.string))
   decode.success(CreateProjectArgs(name: name, notes: notes, area: area))
 }
 
@@ -233,7 +227,7 @@ pub type ListProjectsArgs {
 }
 
 pub fn decode_list_projects_args() -> decode.Decoder(ListProjectsArgs) {
-  use area <- decode.field("area", decode.optional(decode.string))
+  use area <- decode.optional_field("area", None, decode.optional(decode.string))
   decode.success(ListProjectsArgs(area: area))
 }
 
@@ -255,7 +249,7 @@ pub type GetProjectTodosArgs {
 
 pub fn decode_get_project_todos_args() -> decode.Decoder(GetProjectTodosArgs) {
   use project <- decode.field("project", decode.string)
-  use status <- decode.field("status", decode.optional(decode.string))
+  use status <- decode.optional_field("status", None, decode.optional(decode.string))
   decode.success(GetProjectTodosArgs(project: project, status: status))
 }
 

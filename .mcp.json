@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "things3": {
+      "type": "stdio",
+      "command": "sh",
+      "args": ["-c", "cd /Users/nicholaspoz/projects/me/things_mcp && gleam run 2>/dev/null"],
+      "cwd": "/Users/nicholaspoz/projects/me/things_mcp"
+    }
+  }
+}
