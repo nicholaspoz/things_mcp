@@ -38,6 +38,9 @@ fn build_server() -> mcp_toolkit.Server {
     "MCP server for Things3 task manager via AppleScript",
   )
   |> mcp_toolkit.tool_capabilities(True)
+  |> mcp_toolkit.prompt_capabilities(False)
+  // Register prompts
+  |> register_things_inbox_triage_prompt()
   // Register todo tools
   |> register_create_todo()
   |> register_list_todos()
@@ -59,6 +62,44 @@ fn build_server() -> mcp_toolkit.Server {
   |> register_remove_todo_from_project()
   |> register_remove_project_from_area()
   |> mcp_toolkit.build()
+}
+
+// ===== PROMPT REGISTRATION FUNCTIONS =====
+
+fn register_things_inbox_triage_prompt(
+  builder: mcp_toolkit.Builder,
+) -> mcp_toolkit.Builder {
+  let prompt =
+    mcp.Prompt(
+      name: "things-inbox-triage",
+      description: Some(
+        "Review the Things3 Inbox and help decide what to do with each item",
+      ),
+      arguments: None,
+    )
+
+  mcp_toolkit.add_prompt(builder, prompt, handle_things_inbox_triage_prompt)
+}
+
+fn handle_things_inbox_triage_prompt(
+  _request: mcp.GetPromptRequest,
+) -> Result(mcp.GetPromptResult, String) {
+  Ok(
+    mcp.GetPromptResult(
+      meta: None,
+      description: Some("Things3 Inbox triage workflow"),
+      messages: [
+        mcp.PromptMessage(
+          role: mcp.User,
+          content: mcp.TextPromptContent(mcp.TextContent(
+            annotations: None,
+            type_: "text",
+            text: "Use the Things3 MCP tools to triage my Inbox. First call list_todos with location \"Inbox\" and status \"open\", and provide a brief description of what you found. Then group the results into: quick wins, needs scheduling, should move to a project, and delete or complete candidates. Ask for confirmation before making any changes. When I confirm, use the available Things3 tools to update, complete, move, or create project structure as appropriate.",
+          )),
+        ),
+      ],
+    ),
+  )
 }
 
 // ===== TOOL REGISTRATION FUNCTIONS =====
@@ -350,7 +391,9 @@ fn handle_search_todos_wrapper(
 
 // ===== PROJECT TOOL REGISTRATION =====
 
-fn register_create_project(builder: mcp_toolkit.Builder) -> mcp_toolkit.Builder {
+fn register_create_project(
+  builder: mcp_toolkit.Builder,
+) -> mcp_toolkit.Builder {
   let assert Ok(schema) = mcp.tool_input_schema(types.create_project_schema)
 
   let tool =

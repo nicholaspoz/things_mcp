@@ -56,17 +56,23 @@ An MCP (Model Context Protocol) server for interacting with Things3 task manager
 {
   "mcpServers": {
     "things3": {
-      "command": "gleam",
-      "args": ["run", "-m", "things"],
-      "cwd": "/path/to/things_mcp"
+      "type": "stdio",
+      "command": "sh",
+      "args": ["-c", "cd \"${THINGS_MCP_HOME:-$PWD}\" && exec gleam run 2>/dev/null"]
     }
   }
 }
 ```
 
-2. Restart Claude Desktop
+2. If your MCP client does not launch the server from this repository directory, set `THINGS_MCP_HOME` to the absolute path of this checkout before starting the client:
 
-3. You can now ask Claude to interact with Things3:
+```bash
+export THINGS_MCP_HOME=/path/to/things_mcp
+```
+
+3. Restart Claude Desktop
+
+4. You can now ask Claude to interact with Things3:
    - "Create a todo called 'Buy groceries' in my Inbox"
    - "What todos do I have in Today?"
    - "Mark the 'Buy groceries' todo as complete"
