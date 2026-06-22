@@ -36,6 +36,19 @@ pub fn build_properties(props: List(#(String, String))) -> String {
   }
 }
 
+/// Build a Things object reference by stable Things ID.
+pub fn todo_by_id(id: String) -> String {
+  "first to do whose id is " <> quote_string(id)
+}
+
+pub fn project_by_id(id: String) -> String {
+  "first project whose id is " <> quote_string(id)
+}
+
+pub fn area_by_id(id: String) -> String {
+  "first area whose id is " <> quote_string(id)
+}
+
 /// Quote a string for use in AppleScript
 pub fn quote_string(s: String) -> String {
   "\"" <> escape_quotes(s) <> "\""

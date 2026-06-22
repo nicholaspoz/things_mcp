@@ -29,11 +29,14 @@ pub fn handle_create_project(
   let properties = applescript.build_properties(props)
 
   // Build and execute AppleScript command
-  let command = "make new project with properties " <> properties
+  let command =
+    "set newProject to make new project with properties "
+    <> properties
+    <> "\nreturn id of newProject"
 
   applescript.execute(applescript.tell_things(command))
   |> result.map(fn(output) {
-    "Created project: " <> args.name <> "\nOutput: " <> output
+    "Created project: " <> args.name <> "\nID: " <> output
   })
 }
 
@@ -50,21 +53,26 @@ pub fn handle_list_projects(
       set theArea to area \"" <> area <> "\"
       repeat with proj in projects of theArea
         try
+          set projID to id of proj
           set projName to name of proj
           set projStatus to status of proj as string
           set projNotes to notes of proj
-          set projInfo to projName & \" | \" & projStatus & \" | \" & projNotes
+          set projInfo to projID & \" | \" & projName & \" | \" & projStatus & \" | \" & projNotes
           set end of projectList to projInfo
         end try
       end repeat
     end try
-    return projectList as string
+    set AppleScript's text item delimiters to linefeed
+    set projectOutput to projectList as text
+    set AppleScript's text item delimiters to \"\"
+    return projectOutput
   "
     None ->
       "
     set projectList to {}
     repeat with proj in projects
       try
+        set projID to id of proj
         set projName to name of proj
         set projStatus to status of proj as string
         set projNotes to notes of proj
@@ -72,11 +80,14 @@ pub fn handle_list_projects(
         try
           set projAreaName to name of area of proj
         end try
-        set projInfo to projName & \" | \" & projStatus & \" | \" & projNotes & \" | Area: \" & projAreaName
+        set projInfo to projID & \" | \" & projName & \" | \" & projStatus & \" | \" & projNotes & \" | Area: \" & projAreaName
         set end of projectList to projInfo
       end try
     end repeat
-    return projectList as string
+    set AppleScript's text item delimiters to linefeed
+    set projectOutput to projectList as text
+    set AppleScript's text item delimiters to \"\"
+    return projectOutput
   "
   }
 
@@ -104,6 +115,7 @@ pub fn handle_get_project_todos(
       repeat with todo in to dos of theProject
         try
           set todoName to name of todo
+          set todoID to id of todo
           set todoStatus to status of todo as string
           set todoNotes to notes of todo
           set todoDueDate to \"\"
@@ -111,12 +123,15 @@ pub fn handle_get_project_todos(
             set todoDueDate to due date of todo as string
           end try
           set todoTags to tag names of todo as string
-          set todoInfo to todoName & \" | \" & todoStatus & \" | \" & todoNotes & \" | \" & todoDueDate & \" | \" & todoTags
+          set todoInfo to todoID & \" | \" & todoName & \" | \" & todoStatus & \" | \" & todoNotes & \" | \" & todoDueDate & \" | \" & todoTags
           set end of todoList to todoInfo
         end try
       end repeat
     end try
-    return todoList as string
+    set AppleScript's text item delimiters to linefeed
+    set todoOutput to todoList as text
+    set AppleScript's text item delimiters to \"\"
+    return todoOutput
   "
 
   applescript.execute(applescript.tell_things(command))

@@ -4,33 +4,34 @@ An MCP (Model Context Protocol) server for interacting with Things3 task manager
 
 ## Features
 
-### Todo Operations (5 tools)
+### Todo Operations (6 tools)
 
 - **create_todo** - Create a new todo with optional notes, due date, tags, and target list
-- **list_todos** - List todos from a specific list (Inbox, Today, Anytime, Upcoming, Someday, Logbook)
-- **complete_todo** - Mark a todo as completed
-- **update_todo** - Update a todo's properties (name, notes, due date, tags)
-- **search_todos** - Search for todos across all lists by name
+- **list_todos** - List todos from a specific list (Inbox, Today, Anytime, Upcoming, Someday, Logbook), including stable IDs
+- **get_todo** - Get a todo by stable ID, including the full notes content
+- **complete_todo** - Mark a todo as completed by stable ID
+- **update_todo** - Update a todo's properties (name, notes, due date, tags) by stable ID
+- **search_todos** - Search for todos by name and return stable IDs
 
 ### Project Operations (3 tools)
 
 - **create_project** - Create a new project with optional notes and area
-- **list_projects** - List all projects with optional area filter
-- **get_project_todos** - Get all todos within a specific project
+- **list_projects** - List all projects with optional area filter, including stable IDs
+- **get_project_todos** - Get all todos within a specific project, including stable todo IDs
 
 ### Utility Operations (2 tools)
 
-- **list_tags** - List all available tags
-- **list_areas** - List all areas
+- **list_tags** - List all available tags with stable IDs
+- **list_areas** - List all areas with stable IDs
 
 ### Move Operations (6 tools)
 
-- **move_todo** - Move a todo to a built-in list (Today, Anytime, Someday, Logbook, Trash)
-- **move_todo_to_project** - Move a todo to a project
-- **move_todo_to_area** - Move a todo to an area (removes from project if any)
-- **move_project_to_area** - Move a project to an area
-- **remove_todo_from_project** - Remove a todo from its project (detach parent)
-- **remove_project_from_area** - Remove a project from its area (detach parent)
+- **move_todo** - Move a todo by stable ID to a built-in list (Today, Anytime, Someday, Logbook, Trash)
+- **move_todo_to_project** - Move a todo to a project by stable IDs
+- **move_todo_to_area** - Move a todo to an area by stable IDs (removes from project if any)
+- **move_project_to_area** - Move a project to an area by stable IDs
+- **remove_todo_from_project** - Remove a todo from its project by stable ID
+- **remove_project_from_area** - Remove a project from its area by stable ID
 
 ## Requirements
 
@@ -75,18 +76,19 @@ export THINGS_MCP_HOME=/path/to/things_mcp
 4. You can now ask Claude to interact with Things3:
    - "Create a todo called 'Buy groceries' in my Inbox"
    - "What todos do I have in Today?"
-   - "Mark the 'Buy groceries' todo as complete"
+   - "Show me the full notes for this todo ID"
+   - "Find the 'Buy groceries' todo and mark it complete"
    - "Search for all todos with 'meeting' in the name"
-   - "Update the 'Project proposal' todo with a due date of 2026-01-15"
+   - "Find the 'Project proposal' todo and update it with a due date of 2026-01-15"
    - "Create a new project called 'Q1 Planning'"
    - "List all projects in my Work area"
    - "Show me all todos in the Q1 Planning project"
    - "What tags do I have?"
    - "List all my areas"
-   - "Move the 'Buy groceries' todo to Today"
-   - "Move the 'Write report' todo to the Work project"
-   - "Move the Budget project to the Home area"
-   - "Remove the 'Team meeting' todo from its project"
+   - "Find the 'Buy groceries' todo and move it to Today"
+   - "Find the 'Write report' todo and the Work project, then move the todo to that project"
+   - "Find the Budget project and Home area, then move the project to the area"
+   - "Find the 'Team meeting' todo and remove it from its project"
 
 ## Manual Testing
 
@@ -119,6 +121,8 @@ Then you can call tools:
 {"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"list_tags","arguments":{}}}
 ```
 
+Tools that target existing items use stable Things IDs, not display names. Use `list_todos`, `search_todos`, `list_projects`, and `list_areas` first to get the IDs needed by get, update, complete, move, and detach operations.
+
 ## Tool Schemas
 
 ### create_todo
@@ -142,11 +146,19 @@ Then you can call tools:
 }
 ```
 
+### get_todo
+
+```json
+{
+  "id": "abc123" // required (stable todo ID from list_todos or search_todos)
+}
+```
+
 ### complete_todo
 
 ```json
 {
-  "name": "Test Todo" // required
+  "id": "abc123" // required (stable todo ID from list_todos or search_todos)
 }
 ```
 
@@ -154,7 +166,7 @@ Then you can call tools:
 
 ```json
 {
-  "name": "Test Todo", // required (current name)
+  "id": "abc123", // required (stable todo ID from list_todos or search_todos)
   "new_name": "Updated Todo", // optional
   "new_notes": "New notes", // optional
   "new_due_date": "2026-01-20", // optional (or "none" to clear)
@@ -213,7 +225,7 @@ Then you can call tools:
 
 ```json
 {
-  "name": "Test Todo", // required
+  "id": "abc123", // required (stable todo ID from list_todos or search_todos)
   "list": "Today" // required (Today, Anytime, Someday, Logbook, Trash)
 }
 ```
@@ -222,8 +234,8 @@ Then you can call tools:
 
 ```json
 {
-  "name": "Test Todo", // required
-  "project": "Work Project" // required
+  "todo_id": "abc123", // required (stable todo ID from list_todos or search_todos)
+  "project_id": "def456" // required (stable project ID from list_projects)
 }
 ```
 
@@ -231,8 +243,8 @@ Then you can call tools:
 
 ```json
 {
-  "name": "Test Todo", // required
-  "area": "Home" // required (removes from project if any)
+  "todo_id": "abc123", // required (stable todo ID from list_todos or search_todos)
+  "area_id": "ghi789" // required (stable area ID from list_areas; removes from project if any)
 }
 ```
 
@@ -240,8 +252,8 @@ Then you can call tools:
 
 ```json
 {
-  "name": "My Project", // required
-  "area": "Work" // required
+  "project_id": "def456", // required (stable project ID from list_projects)
+  "area_id": "ghi789" // required (stable area ID from list_areas)
 }
 ```
 
@@ -249,7 +261,7 @@ Then you can call tools:
 
 ```json
 {
-  "name": "Test Todo" // required
+  "id": "abc123" // required (stable todo ID from list_todos or search_todos)
 }
 ```
 
@@ -257,7 +269,7 @@ Then you can call tools:
 
 ```json
 {
-  "name": "My Project" // required
+  "id": "def456" // required (stable project ID from list_projects)
 }
 ```
 
@@ -297,13 +309,13 @@ gleam test
 ```
 
 The test suite includes comprehensive integration tests that:
-- Test all 16 MCP tools with real Things3 operations
+- Test all 17 MCP tools with real Things3 operations
 - Use unique `__TEST_*` prefixes to avoid conflicting with user data
 - Automatically clean up all test data (even if tests fail)
 - Leave no trace in your Things3 database
 
 Test structure:
-- `test/integration_test.gleam` - Full integration test covering all 16 tools
+- `test/integration_test.gleam` - Full integration test covering all 17 tools
 - `test/test_helpers/` - State tracking, assertions, and cleanup utilities
 
 ## Architecture
@@ -318,8 +330,8 @@ The server is built using:
 The architecture follows a clean separation of concerns:
 
 1. **applescript.gleam** - Low-level AppleScript execution via osascript
-2. **types.gleam** - Type definitions, JSON schemas, and decoders for all 16 tools
-3. **todo_ops.gleam** - Business logic for todo operations (5 tools)
+2. **types.gleam** - Type definitions, JSON schemas, and decoders for all 17 tools
+3. **todo_ops.gleam** - Business logic for todo operations (6 tools)
 4. **project_ops.gleam** - Business logic for project operations (3 tools)
 5. **list_ops.gleam** - Business logic for utility operations (2 tools)
 6. **move_ops.gleam** - Business logic for move operations (6 tools)
@@ -330,7 +342,7 @@ The architecture follows a clean separation of concerns:
 The server uses basic error handling that passes through raw AppleScript errors:
 
 - If Things3 is not running: "Application isn't running"
-- If a todo is not found: "Can't get to do named..."
+- If an item ID is not found: "Can't get ... whose id = ..."
 - If a date format is invalid: "Can't make date..."
 
 All errors are returned in the MCP response with `is_error: true`.

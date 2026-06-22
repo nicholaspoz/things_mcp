@@ -44,6 +44,7 @@ fn build_server() -> mcp_toolkit.Server {
   // Register todo tools
   |> register_create_todo()
   |> register_list_todos()
+  |> register_get_todo()
   |> register_complete_todo()
   |> register_update_todo()
   |> register_search_todos()
@@ -146,6 +147,27 @@ fn register_list_todos(builder: mcp_toolkit.Builder) -> mcp_toolkit.Builder {
   )
 }
 
+fn register_get_todo(builder: mcp_toolkit.Builder) -> mcp_toolkit.Builder {
+  let assert Ok(schema) = mcp.tool_input_schema(types.get_todo_schema)
+
+  let tool =
+    mcp.Tool(
+      name: "get_todo",
+      input_schema: schema,
+      description: Some(
+        "Get a todo by stable ID, including the full notes content",
+      ),
+      annotations: None,
+    )
+
+  mcp_toolkit.add_tool(
+    builder,
+    tool,
+    types.decode_get_todo_args(),
+    handle_get_todo_wrapper,
+  )
+}
+
 fn register_complete_todo(builder: mcp_toolkit.Builder) -> mcp_toolkit.Builder {
   let assert Ok(schema) = mcp.tool_input_schema(types.complete_todo_schema)
 
@@ -153,7 +175,7 @@ fn register_complete_todo(builder: mcp_toolkit.Builder) -> mcp_toolkit.Builder {
     mcp.Tool(
       name: "complete_todo",
       input_schema: schema,
-      description: Some("Mark a todo as completed in Things3 by its name"),
+      description: Some("Mark a todo as completed in Things3 by stable ID"),
       annotations: None,
     )
 
@@ -173,7 +195,7 @@ fn register_update_todo(builder: mcp_toolkit.Builder) -> mcp_toolkit.Builder {
       name: "update_todo",
       input_schema: schema,
       description: Some(
-        "Update a todo's properties (name, notes, due date, tags) in Things3",
+        "Update a todo's properties (name, notes, due date, tags) in Things3 by stable ID",
       ),
       annotations: None,
     )
@@ -193,7 +215,9 @@ fn register_search_todos(builder: mcp_toolkit.Builder) -> mcp_toolkit.Builder {
     mcp.Tool(
       name: "search_todos",
       input_schema: schema,
-      description: Some("Search for todos across all lists in Things3 by name"),
+      description: Some(
+        "Search for todos across Things3 by name and return stable IDs",
+      ),
       annotations: None,
     )
 
@@ -278,6 +302,42 @@ fn handle_list_todos_wrapper(
         ],
         is_error: Some(True),
       ))
+  }
+}
+
+fn handle_get_todo_wrapper(
+  request: mcp.CallToolRequest(types.GetTodoArgs),
+) -> Result(mcp.CallToolResult, String) {
+  case request.arguments {
+    Some(args) -> {
+      case todo_ops.handle_get_todo(args) {
+        Ok(output) ->
+          Ok(mcp.CallToolResult(
+            meta: None,
+            content: [
+              mcp.TextToolContent(mcp.TextContent(
+                type_: "text",
+                text: output,
+                annotations: None,
+              )),
+            ],
+            is_error: None,
+          ))
+        Error(err) ->
+          Ok(mcp.CallToolResult(
+            meta: None,
+            content: [
+              mcp.TextToolContent(mcp.TextContent(
+                type_: "text",
+                text: err,
+                annotations: None,
+              )),
+            ],
+            is_error: Some(True),
+          ))
+      }
+    }
+    None -> Error("No arguments provided")
   }
 }
 
@@ -689,7 +749,7 @@ fn register_move_todo(builder: mcp_toolkit.Builder) -> mcp_toolkit.Builder {
       name: "move_todo",
       input_schema: schema,
       description: Some(
-        "Move a todo to a built-in list (Today, Anytime, Someday, Logbook, Trash)",
+        "Move a todo by stable ID to a built-in list (Today, Anytime, Someday, Logbook, Trash)",
       ),
       annotations: None,
     )
@@ -712,7 +772,7 @@ fn register_move_todo_to_project(
     mcp.Tool(
       name: "move_todo_to_project",
       input_schema: schema,
-      description: Some("Move a todo to a project"),
+      description: Some("Move a todo to a project by stable IDs"),
       annotations: None,
     )
 
@@ -734,7 +794,7 @@ fn register_move_todo_to_area(
       name: "move_todo_to_area",
       input_schema: schema,
       description: Some(
-        "Move a todo to an area (removes from project if currently in one)",
+        "Move a todo to an area by stable IDs (removes from project if currently in one)",
       ),
       annotations: None,
     )
@@ -757,7 +817,7 @@ fn register_move_project_to_area(
     mcp.Tool(
       name: "move_project_to_area",
       input_schema: schema,
-      description: Some("Move a project to an area"),
+      description: Some("Move a project to an area by stable IDs"),
       annotations: None,
     )
 
@@ -779,7 +839,7 @@ fn register_remove_todo_from_project(
     mcp.Tool(
       name: "remove_todo_from_project",
       input_schema: schema,
-      description: Some("Remove a todo from its project (detach parent)"),
+      description: Some("Remove a todo from its project by stable ID"),
       annotations: None,
     )
 
@@ -801,7 +861,7 @@ fn register_remove_project_from_area(
     mcp.Tool(
       name: "remove_project_from_area",
       input_schema: schema,
-      description: Some("Remove a project from its area (detach parent)"),
+      description: Some("Remove a project from its area by stable ID"),
       annotations: None,
     )
 

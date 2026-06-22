@@ -3,8 +3,6 @@ import gleam/list
 import gleam/result
 import test_helpers/test_state
 import things_mcp/applescript
-import things_mcp/tools/move_ops
-import things_mcp/types
 
 /// Clean up all test entities, ensuring no trace is left
 pub fn cleanup_all(state: test_state.TestState) -> Result(Nil, String) {
@@ -46,8 +44,12 @@ fn cleanup_todos(state: test_state.TestState) -> Result(Nil, String) {
     False -> {
       todos
       |> list.map(fn(todo_name) {
-        let args = types.MoveTodoArgs(name: todo_name, list: "Trash")
-        case move_ops.handle_move_todo(args) {
+        let command =
+          "set targetToDo to first to do whose name is "
+          <> applescript.quote_string(todo_name)
+          <> "\nmove targetToDo to list \"Trash\""
+
+        case applescript.execute(applescript.tell_things(command)) {
           Ok(_) -> {
             io.println("  ✓ Moved to trash: " <> todo_name)
             Ok(Nil)

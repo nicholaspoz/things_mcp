@@ -15,10 +15,26 @@ pub type CreateTodoArgs {
 
 pub fn decode_create_todo_args() -> decode.Decoder(CreateTodoArgs) {
   use name <- decode.field("name", decode.string)
-  use notes <- decode.optional_field("notes", None, decode.optional(decode.string))
-  use due_date <- decode.optional_field("due_date", None, decode.optional(decode.string))
-  use tags <- decode.optional_field("tags", None, decode.optional(decode.list(decode.string)))
-  use list <- decode.optional_field("list", None, decode.optional(decode.string))
+  use notes <- decode.optional_field(
+    "notes",
+    None,
+    decode.optional(decode.string),
+  )
+  use due_date <- decode.optional_field(
+    "due_date",
+    None,
+    decode.optional(decode.string),
+  )
+  use tags <- decode.optional_field(
+    "tags",
+    None,
+    decode.optional(decode.list(decode.string)),
+  )
+  use list <- decode.optional_field(
+    "list",
+    None,
+    decode.optional(decode.string),
+  )
   decode.success(CreateTodoArgs(
     name: name,
     notes: notes,
@@ -66,8 +82,16 @@ pub type ListTodosArgs {
 }
 
 pub fn decode_list_todos_args() -> decode.Decoder(ListTodosArgs) {
-  use location <- decode.optional_field("location", None, decode.optional(decode.string))
-  use status <- decode.optional_field("status", None, decode.optional(decode.string))
+  use location <- decode.optional_field(
+    "location",
+    None,
+    decode.optional(decode.string),
+  )
+  use status <- decode.optional_field(
+    "status",
+    None,
+    decode.optional(decode.string),
+  )
   decode.success(ListTodosArgs(location: location, status: status))
 }
 
@@ -87,33 +111,55 @@ pub const list_todos_schema = "{
   }
 }"
 
+// ===== GET TODO =====
+
+pub type GetTodoArgs {
+  GetTodoArgs(id: String)
+}
+
+pub fn decode_get_todo_args() -> decode.Decoder(GetTodoArgs) {
+  use id <- decode.field("id", decode.string)
+  decode.success(GetTodoArgs(id: id))
+}
+
+pub const get_todo_schema = "{
+  \"type\": \"object\",
+  \"properties\": {
+    \"id\": {
+      \"type\": \"string\",
+      \"description\": \"Stable Things ID of the todo to retrieve\"
+    }
+  },
+  \"required\": [\"id\"]
+}"
+
 // ===== COMPLETE TODO =====
 
 pub type CompleteTodoArgs {
-  CompleteTodoArgs(name: String)
+  CompleteTodoArgs(id: String)
 }
 
 pub fn decode_complete_todo_args() -> decode.Decoder(CompleteTodoArgs) {
-  use name <- decode.field("name", decode.string)
-  decode.success(CompleteTodoArgs(name: name))
+  use id <- decode.field("id", decode.string)
+  decode.success(CompleteTodoArgs(id: id))
 }
 
 pub const complete_todo_schema = "{
   \"type\": \"object\",
   \"properties\": {
-    \"name\": {
+    \"id\": {
       \"type\": \"string\",
-      \"description\": \"Name of the todo to mark as complete\"
+      \"description\": \"Stable Things ID of the todo to mark as complete\"
     }
   },
-  \"required\": [\"name\"]
+  \"required\": [\"id\"]
 }"
 
 // ===== UPDATE TODO =====
 
 pub type UpdateTodoArgs {
   UpdateTodoArgs(
-    name: String,
+    id: String,
     new_name: Option(String),
     new_notes: Option(String),
     new_due_date: Option(String),
@@ -122,13 +168,29 @@ pub type UpdateTodoArgs {
 }
 
 pub fn decode_update_todo_args() -> decode.Decoder(UpdateTodoArgs) {
-  use name <- decode.field("name", decode.string)
-  use new_name <- decode.optional_field("new_name", None, decode.optional(decode.string))
-  use new_notes <- decode.optional_field("new_notes", None, decode.optional(decode.string))
-  use new_due_date <- decode.optional_field("new_due_date", None, decode.optional(decode.string))
-  use new_tags <- decode.optional_field("new_tags", None, decode.optional(decode.list(decode.string)))
+  use id <- decode.field("id", decode.string)
+  use new_name <- decode.optional_field(
+    "new_name",
+    None,
+    decode.optional(decode.string),
+  )
+  use new_notes <- decode.optional_field(
+    "new_notes",
+    None,
+    decode.optional(decode.string),
+  )
+  use new_due_date <- decode.optional_field(
+    "new_due_date",
+    None,
+    decode.optional(decode.string),
+  )
+  use new_tags <- decode.optional_field(
+    "new_tags",
+    None,
+    decode.optional(decode.list(decode.string)),
+  )
   decode.success(UpdateTodoArgs(
-    name: name,
+    id: id,
     new_name: new_name,
     new_notes: new_notes,
     new_due_date: new_due_date,
@@ -139,9 +201,9 @@ pub fn decode_update_todo_args() -> decode.Decoder(UpdateTodoArgs) {
 pub const update_todo_schema = "{
   \"type\": \"object\",
   \"properties\": {
-    \"name\": {
+    \"id\": {
       \"type\": \"string\",
-      \"description\": \"Current name of the todo to update\"
+      \"description\": \"Stable Things ID of the todo to update\"
     },
     \"new_name\": {
       \"type\": \"string\",
@@ -163,7 +225,7 @@ pub const update_todo_schema = "{
       \"description\": \"New list of tag names\"
     }
   },
-  \"required\": [\"name\"]
+  \"required\": [\"id\"]
 }"
 
 // ===== SEARCH TODOS =====
@@ -196,8 +258,16 @@ pub type CreateProjectArgs {
 
 pub fn decode_create_project_args() -> decode.Decoder(CreateProjectArgs) {
   use name <- decode.field("name", decode.string)
-  use notes <- decode.optional_field("notes", None, decode.optional(decode.string))
-  use area <- decode.optional_field("area", None, decode.optional(decode.string))
+  use notes <- decode.optional_field(
+    "notes",
+    None,
+    decode.optional(decode.string),
+  )
+  use area <- decode.optional_field(
+    "area",
+    None,
+    decode.optional(decode.string),
+  )
   decode.success(CreateProjectArgs(name: name, notes: notes, area: area))
 }
 
@@ -227,7 +297,11 @@ pub type ListProjectsArgs {
 }
 
 pub fn decode_list_projects_args() -> decode.Decoder(ListProjectsArgs) {
-  use area <- decode.optional_field("area", None, decode.optional(decode.string))
+  use area <- decode.optional_field(
+    "area",
+    None,
+    decode.optional(decode.string),
+  )
   decode.success(ListProjectsArgs(area: area))
 }
 
@@ -249,7 +323,11 @@ pub type GetProjectTodosArgs {
 
 pub fn decode_get_project_todos_args() -> decode.Decoder(GetProjectTodosArgs) {
   use project <- decode.field("project", decode.string)
-  use status <- decode.optional_field("status", None, decode.optional(decode.string))
+  use status <- decode.optional_field(
+    "status",
+    None,
+    decode.optional(decode.string),
+  )
   decode.success(GetProjectTodosArgs(project: project, status: status))
 }
 
@@ -302,21 +380,21 @@ pub const list_areas_schema = "{
 // ===== MOVE TODO =====
 
 pub type MoveTodoArgs {
-  MoveTodoArgs(name: String, list: String)
+  MoveTodoArgs(id: String, list: String)
 }
 
 pub fn decode_move_todo_args() -> decode.Decoder(MoveTodoArgs) {
-  use name <- decode.field("name", decode.string)
+  use id <- decode.field("id", decode.string)
   use list <- decode.field("list", decode.string)
-  decode.success(MoveTodoArgs(name: name, list: list))
+  decode.success(MoveTodoArgs(id: id, list: list))
 }
 
 pub const move_todo_schema = "{
   \"type\": \"object\",
   \"properties\": {
-    \"name\": {
+    \"id\": {
       \"type\": \"string\",
-      \"description\": \"Name of the todo to move\"
+      \"description\": \"Stable Things ID of the todo to move\"
     },
     \"list\": {
       \"type\": \"string\",
@@ -324,138 +402,138 @@ pub const move_todo_schema = "{
       \"description\": \"Target list to move the todo to\"
     }
   },
-  \"required\": [\"name\", \"list\"]
+  \"required\": [\"id\", \"list\"]
 }"
 
 // ===== MOVE TODO TO PROJECT =====
 
 pub type MoveTodoToProjectArgs {
-  MoveTodoToProjectArgs(name: String, project: String)
+  MoveTodoToProjectArgs(todo_id: String, project_id: String)
 }
 
 pub fn decode_move_todo_to_project_args() -> decode.Decoder(
   MoveTodoToProjectArgs,
 ) {
-  use name <- decode.field("name", decode.string)
-  use project <- decode.field("project", decode.string)
-  decode.success(MoveTodoToProjectArgs(name: name, project: project))
+  use todo_id <- decode.field("todo_id", decode.string)
+  use project_id <- decode.field("project_id", decode.string)
+  decode.success(MoveTodoToProjectArgs(todo_id: todo_id, project_id: project_id))
 }
 
 pub const move_todo_to_project_schema = "{
   \"type\": \"object\",
   \"properties\": {
-    \"name\": {
+    \"todo_id\": {
       \"type\": \"string\",
-      \"description\": \"Name of the todo to move\"
+      \"description\": \"Stable Things ID of the todo to move\"
     },
-    \"project\": {
+    \"project_id\": {
       \"type\": \"string\",
-      \"description\": \"Name of the project to move the todo to\"
+      \"description\": \"Stable Things ID of the project to move the todo to\"
     }
   },
-  \"required\": [\"name\", \"project\"]
+  \"required\": [\"todo_id\", \"project_id\"]
 }"
 
 // ===== MOVE TODO TO AREA =====
 
 pub type MoveTodoToAreaArgs {
-  MoveTodoToAreaArgs(name: String, area: String)
+  MoveTodoToAreaArgs(todo_id: String, area_id: String)
 }
 
 pub fn decode_move_todo_to_area_args() -> decode.Decoder(MoveTodoToAreaArgs) {
-  use name <- decode.field("name", decode.string)
-  use area <- decode.field("area", decode.string)
-  decode.success(MoveTodoToAreaArgs(name: name, area: area))
+  use todo_id <- decode.field("todo_id", decode.string)
+  use area_id <- decode.field("area_id", decode.string)
+  decode.success(MoveTodoToAreaArgs(todo_id: todo_id, area_id: area_id))
 }
 
 pub const move_todo_to_area_schema = "{
   \"type\": \"object\",
   \"properties\": {
-    \"name\": {
+    \"todo_id\": {
       \"type\": \"string\",
-      \"description\": \"Name of the todo to move\"
+      \"description\": \"Stable Things ID of the todo to move\"
     },
-    \"area\": {
+    \"area_id\": {
       \"type\": \"string\",
-      \"description\": \"Name of the area to move the todo to (will remove from project if any)\"
+      \"description\": \"Stable Things ID of the area to move the todo to (will remove from project if any)\"
     }
   },
-  \"required\": [\"name\", \"area\"]
+  \"required\": [\"todo_id\", \"area_id\"]
 }"
 
 // ===== MOVE PROJECT TO AREA =====
 
 pub type MoveProjectToAreaArgs {
-  MoveProjectToAreaArgs(name: String, area: String)
+  MoveProjectToAreaArgs(project_id: String, area_id: String)
 }
 
 pub fn decode_move_project_to_area_args() -> decode.Decoder(
   MoveProjectToAreaArgs,
 ) {
-  use name <- decode.field("name", decode.string)
-  use area <- decode.field("area", decode.string)
-  decode.success(MoveProjectToAreaArgs(name: name, area: area))
+  use project_id <- decode.field("project_id", decode.string)
+  use area_id <- decode.field("area_id", decode.string)
+  decode.success(MoveProjectToAreaArgs(project_id: project_id, area_id: area_id))
 }
 
 pub const move_project_to_area_schema = "{
   \"type\": \"object\",
   \"properties\": {
-    \"name\": {
+    \"project_id\": {
       \"type\": \"string\",
-      \"description\": \"Name of the project to move\"
+      \"description\": \"Stable Things ID of the project to move\"
     },
-    \"area\": {
+    \"area_id\": {
       \"type\": \"string\",
-      \"description\": \"Name of the area to move the project to\"
+      \"description\": \"Stable Things ID of the area to move the project to\"
     }
   },
-  \"required\": [\"name\", \"area\"]
+  \"required\": [\"project_id\", \"area_id\"]
 }"
 
 // ===== REMOVE TODO FROM PROJECT =====
 
 pub type RemoveTodoFromProjectArgs {
-  RemoveTodoFromProjectArgs(name: String)
+  RemoveTodoFromProjectArgs(id: String)
 }
 
 pub fn decode_remove_todo_from_project_args() -> decode.Decoder(
   RemoveTodoFromProjectArgs,
 ) {
-  use name <- decode.field("name", decode.string)
-  decode.success(RemoveTodoFromProjectArgs(name: name))
+  use id <- decode.field("id", decode.string)
+  decode.success(RemoveTodoFromProjectArgs(id: id))
 }
 
 pub const remove_todo_from_project_schema = "{
   \"type\": \"object\",
   \"properties\": {
-    \"name\": {
+    \"id\": {
       \"type\": \"string\",
-      \"description\": \"Name of the todo to remove from its project\"
+      \"description\": \"Stable Things ID of the todo to remove from its project\"
     }
   },
-  \"required\": [\"name\"]
+  \"required\": [\"id\"]
 }"
 
 // ===== REMOVE PROJECT FROM AREA =====
 
 pub type RemoveProjectFromAreaArgs {
-  RemoveProjectFromAreaArgs(name: String)
+  RemoveProjectFromAreaArgs(id: String)
 }
 
 pub fn decode_remove_project_from_area_args() -> decode.Decoder(
   RemoveProjectFromAreaArgs,
 ) {
-  use name <- decode.field("name", decode.string)
-  decode.success(RemoveProjectFromAreaArgs(name: name))
+  use id <- decode.field("id", decode.string)
+  decode.success(RemoveProjectFromAreaArgs(id: id))
 }
 
 pub const remove_project_from_area_schema = "{
   \"type\": \"object\",
   \"properties\": {
-    \"name\": {
+    \"id\": {
       \"type\": \"string\",
-      \"description\": \"Name of the project to remove from its area\"
+      \"description\": \"Stable Things ID of the project to remove from its area\"
     }
   },
-  \"required\": [\"name\"]
+  \"required\": [\"id\"]
 }"
