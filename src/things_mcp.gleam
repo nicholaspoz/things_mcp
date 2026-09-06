@@ -35,7 +35,7 @@ fn message_loop(server: mcp_toolkit.Server) -> Nil {
 fn build_server() -> mcp_toolkit.Server {
   mcp_toolkit.new("things3-mcp", "0.1.0")
   |> mcp_toolkit.description(
-    "MCP server for Things3 task manager via AppleScript",
+    "MCP server for Things3 task manager via Things JSON and AppleScript",
   )
   |> mcp_toolkit.tool_capabilities(True)
   |> mcp_toolkit.prompt_capabilities(False)

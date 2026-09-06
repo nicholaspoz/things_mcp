@@ -1,53 +1,17 @@
 import gleam/list
-import gleam/option.{None, Some}
+import gleam/option
 import gleam/result
 import gleam/string
 import things_mcp/applescript
 import things_mcp/types
+import things_mcp/writes
 
 // ===== CREATE TODO =====
 
 pub fn handle_create_todo(
   args: types.CreateTodoArgs,
 ) -> Result(String, String) {
-  // Build properties list
-  let props = [#("name", applescript.quote_string(args.name))]
-
-  // Add optional properties
-  let props = case args.notes {
-    Some(notes) ->
-      list.append(props, [#("notes", applescript.quote_string(notes))])
-    None -> props
-  }
-
-  let props = case args.due_date {
-    Some(date) -> list.append(props, [#("due date", "date \"" <> date <> "\"")])
-    None -> props
-  }
-
-  let props = case args.tags {
-    Some(tags) -> {
-      let tag_string = string.join(tags, ", ")
-      list.append(props, [#("tag names", applescript.quote_string(tag_string))])
-    }
-    None -> props
-  }
-
-  let properties = applescript.build_properties(props)
-  let target_list = option.unwrap(args.list, "Inbox")
-
-  // Build and execute AppleScript command
-  let command =
-    "set newToDo to make new to do in list \""
-    <> target_list
-    <> "\" with properties "
-    <> properties
-    <> "\nreturn id of newToDo"
-
-  applescript.execute(applescript.tell_things(command))
-  |> result.map(fn(output) {
-    "Created todo: " <> args.name <> "\nID: " <> output
-  })
+  writes.handle_create_todo(args)
 }
 
 // ===== LIST TODOS =====
@@ -131,14 +95,7 @@ pub fn handle_get_todo(args: types.GetTodoArgs) -> Result(String, String) {
 pub fn handle_complete_todo(
   args: types.CompleteTodoArgs,
 ) -> Result(String, String) {
-  let todo_ref = applescript.todo_by_id(args.id)
-  let command =
-    "set targetToDo to "
-    <> todo_ref
-    <> "\nset status of targetToDo to completed"
-
-  applescript.execute(applescript.tell_things(command))
-  |> result.map(fn(_output) { "Completed todo: " <> args.id })
+  writes.handle_complete_todo(args)
 }
 
 // ===== UPDATE TODO =====
@@ -146,53 +103,7 @@ pub fn handle_complete_todo(
 pub fn handle_update_todo(
   args: types.UpdateTodoArgs,
 ) -> Result(String, String) {
-  let todo_ref = applescript.todo_by_id(args.id)
-
-  // Build list of update commands
-  let commands = ["set targetToDo to " <> todo_ref]
-
-  let commands = case args.new_name {
-    Some(new_name) ->
-      list.append(commands, [
-        "set name of targetToDo to " <> applescript.quote_string(new_name),
-      ])
-    None -> commands
-  }
-
-  let commands = case args.new_notes {
-    Some(new_notes) ->
-      list.append(commands, [
-        "set notes of targetToDo to " <> applescript.quote_string(new_notes),
-      ])
-    None -> commands
-  }
-
-  let commands = case args.new_due_date {
-    Some("none") ->
-      list.append(commands, ["set due date of targetToDo to missing value"])
-    Some(date) ->
-      list.append(commands, [
-        "set due date of targetToDo to date \"" <> date <> "\"",
-      ])
-    None -> commands
-  }
-
-  let commands = case args.new_tags {
-    Some(tags) -> {
-      let tag_string = string.join(tags, ", ")
-      list.append(commands, [
-        "set tag names of targetToDo to "
-        <> applescript.quote_string(tag_string),
-      ])
-    }
-    None -> commands
-  }
-
-  // Execute all update commands
-  let command = string.join(commands, "\n")
-
-  applescript.execute(applescript.tell_things(command))
-  |> result.map(fn(_output) { "Updated todo: " <> args.id })
+  writes.handle_update_todo(args)
 }
 
 // ===== SEARCH TODOS =====

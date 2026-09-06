@@ -4,40 +4,14 @@ import gleam/result
 import gleam/string
 import things_mcp/applescript
 import things_mcp/types
+import things_mcp/writes
 
 // ===== CREATE PROJECT =====
 
 pub fn handle_create_project(
   args: types.CreateProjectArgs,
 ) -> Result(String, String) {
-  // Build properties list
-  let props = [#("name", applescript.quote_string(args.name))]
-
-  // Add optional properties
-  let props = case args.notes {
-    Some(notes) ->
-      list.append(props, [#("notes", applescript.quote_string(notes))])
-    None -> props
-  }
-
-  let props = case args.area {
-    Some(area) ->
-      list.append(props, [#("area", "area " <> applescript.quote_string(area))])
-    None -> props
-  }
-
-  let properties = applescript.build_properties(props)
-
-  // Build and execute AppleScript command
-  let command =
-    "set newProject to make new project with properties "
-    <> properties
-    <> "\nreturn id of newProject"
-
-  applescript.execute(applescript.tell_things(command))
-  |> result.map(fn(output) {
-    "Created project: " <> args.name <> "\nID: " <> output
-  })
+  writes.handle_create_project(args)
 }
 
 // ===== LIST PROJECTS =====
