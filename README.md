@@ -1,6 +1,6 @@
 # Things3 MCP Server
 
-An MCP (Model Context Protocol) server for interacting with Things3 task manager via AppleScript on macOS.
+An MCP (Model Context Protocol) server for interacting with Things3 task manager via Things JSON writes and AppleScript on macOS.
 
 ## Features
 
@@ -39,6 +39,7 @@ An MCP (Model Context Protocol) server for interacting with Things3 task manager
 - Things3 installed and running
 - Gleam installed (`brew install gleam`)
 - Erlang/OTP installed (comes with Gleam)
+- Xcode Command Line Tools (`xcode-select --install`) to build the small native URL callback relay
 
 ## Installation
 
@@ -46,8 +47,34 @@ An MCP (Model Context Protocol) server for interacting with Things3 task manager
 2. Build the project:
    ```bash
    cd things_mcp
+   ./scripts/build_callback.sh
    gleam build
    ```
+
+## Things URL setup
+
+Enable Things URLs in Things → Settings → General → Manage. Copy the authorization token into `~/.config/things-mcp/auth-token`, as the file's sole content, and restrict the file to mode `600`. Alternatively, use the gitignored `.things3_token.txt` in the working directory, or configure `THINGS_AUTH_TOKEN` or `THINGS_AUTH_TOKEN_FILE` in the server's environment. Environment settings take precedence, followed by the working-directory file and then the home-directory file. Never commit a token. Creates do not require a token; JSON updates do.
+
+Gleam encodes and validates the JSON payload and waits for Things' callback, then verifies the result with supported AppleScript reads. The native helper dispatches URLs in the background and receives callback events; it contains no Things write logic. The build produces `build/ThingsCallback.app` and the adjacent `build/ThingsURLDispatch` executable. The callback app starts automatically. Set `THINGS_CALLBACK_APP` to an absolute bundle path when running from another directory, keeping `ThingsURLDispatch` beside the bundle. After rebuilding an already-running relay, quit the `ThingsCallback` process before the next write so macOS loads the new executable.
+
+URL dispatch uses `NSWorkspace.OpenConfiguration.activates = false`. The callback app is registered as background-only, and both native processes prohibit activation. `reveal=false` also prevents navigation to the changed item. Normal writes therefore request background execution; a Things authorization dialog can still require attention. Configure a valid token before live tests and keep invalid-token tests offline.
+
+Callback state is private to the current user under `~/Library/Caches/things-mcp/callbacks`. Authorization URLs are passed through private temporary files rather than process arguments and removed after dispatch. A timeout or failed verification reports uncertain completion; callers must inspect Things before retrying a write.
+
+## Write compatibility
+
+The existing 17 MCP tools, input schemas, handler signatures, and successful response formats are preserved. Creates return stable IDs and writes complete before returning success. Public read tools still use plain AppleScript.
+
+The JSON backend handles task/project creation, ordinary task edits, and moves into projects/areas. Known compatibility cases use AppleScript, selected before any JSON dispatch:
+
+- Existing-item deadline updates, completion, and built-in list moves. Things restricts JSON changes to repeating items, and supported reads cannot reliably identify them. Deadline-bearing updates use AppleScript for the whole operation.
+- Detaching tasks from projects or projects from areas.
+- Unknown or noncanonical tags, because AppleScript can create tags while JSON ignores missing tags.
+- Large text that may exceed JSON field limits. The conservative bounds are 10,000 UTF-8 bytes for notes and 4,000 for titles.
+
+The create fallback explicitly moves scheduled tasks after creation: the old AppleScript `make ... in list "Anytime"` returned an ID while leaving the task in Inbox. Batching and new JSON capabilities remain outside this refactor.
+
+Logbook moves retain the existing AppleScript behavior. In live validation, Things rejected direct moves of both open and completed tasks with error 301; the rejection persists on **Things 3.23.4 (build 32304500)**. This is an observed limitation despite the general AppleScript guide describing Logbook moves. Completion still sets the completed status; the server does not run the global `log completed now` command, which would also affect unrelated tasks.
 
 ## Usage with Claude Desktop
 
@@ -304,19 +331,30 @@ gleam run
 
 ### Testing
 
+Validated against running **Things 3.23.4 (build 32304500)**: all 24 tests and the native helper self-tests pass. See [IMPLEMENTATION_LOG.md](IMPLEMENTATION_LOG.md) for compatibility decisions and review evidence.
+
 ```bash
 gleam test
 ```
 
-The test suite includes comprehensive integration tests that:
+The original integration scenario can exceed Gleeunit's default 50-second per-test limit on a populated Things library. Run the same tests with a 180-second budget when needed; this changes only the test runner's limit, not production write timeouts or assertions:
+
+```sh
+gleam build
+erl -pa build/dev/erlang/*/ebin -noshell -eval 'case eunit:test([integration_test,json_payload_test,json_transport_test,json_write_parity_test], [verbose,{scale_timeouts,36}]) of ok -> halt(0); _ -> halt(1) end.'
+```
+
+The test suite includes integration tests that:
 - Test all 17 MCP tools with real Things3 operations
 - Use unique `__TEST_*` prefixes to avoid conflicting with user data
-- Automatically clean up all test data (even if tests fail)
-- Leave no trace in your Things3 database
+- Clean up disposable test items after reported failures (tasks are moved to Trash)
 
 Test structure:
 - `test/integration_test.gleam` - Full integration test covering all 17 tools
 - `test/test_helpers/` - State tracking, assertions, and cleanup utilities
+- `test/json_payload_test.gleam` - Pure JSON encoding and validation checks
+- `test/json_transport_test.gleam` - Callback, encoding, token-error, and timeout checks
+- `test/json_write_parity_test.gleam` - Focused live field, list, container, and fallback checks
 
 ## Architecture
 
@@ -336,16 +374,19 @@ The architecture follows a clean separation of concerns:
 5. **list_ops.gleam** - Business logic for utility operations (2 tools)
 6. **move_ops.gleam** - Business logic for move operations (6 tools)
 7. **things_mcp.gleam** - MCP server assembly and message loop
+8. **writes.gleam / json_payload.gleam / json_transport.gleam** - Write routing, JSON encoding, and callback results
+9. **write_checks.gleam / legacy_writes.gleam** - Dedicated verification reads and compatibility writes
+10. **things_json_ffi.erl / native/ThingsCallback.swift** - Bounded OS operations, background URL dispatch, and callback reception
 
 ## Error Handling
 
-The server uses basic error handling that passes through raw AppleScript errors:
+Validation and target lookup fail before JSON dispatch when possible. Successful callbacks are followed by bounded read-back verification. Callback errors, timeouts, and verification failures never trigger an automatic retry through AppleScript. Errors preserve the MCP `is_error: true` contract and redact transport diagnostics that could include the token.
 
-- If Things3 is not running: "Application isn't running"
-- If an item ID is not found: "Can't get ... whose id = ..."
-- If a date format is invalid: "Can't make date..."
+Run the live suite with local macOS app access and the Things token configured. To run only the focused live parity checks, use `gleam run -m json_write_parity_test`. Pure checks can be run independently after `gleam build`:
 
-All errors are returned in the MCP response with `is_error: true`.
+```sh
+erl -pa build/dev/erlang/*/ebin -noshell -eval 'case eunit:test([json_payload_test, json_transport_test], [verbose]) of ok -> halt(0); _ -> halt(1) end.'
+```
 
 ## Future Enhancements
 
@@ -359,5 +400,4 @@ Potential additions (not currently implemented):
 - Batch operations (complete multiple todos at once)
 - Delete operations (delete todo, delete project)
 - Checklist item support (add/remove checklist items)
-- Things3 URL scheme integration
 - Recurring todo management
