@@ -4,12 +4,23 @@ import gleam/result
 import gleam/string
 import things_mcp/applescript
 import things_mcp/types
+import things_mcp/validation
+import things_mcp/write_checks as checks
 
 // ===== CREATE TODO =====
 
 pub fn handle_create_todo(
   args: types.CreateTodoArgs,
 ) -> Result(String, String) {
+  let target_list = option.unwrap(args.list, "Inbox")
+  use _ <- result.try(case target_list {
+    "Inbox" | "Today" | "Anytime" | "Someday" -> Ok(Nil)
+    _ -> Error("Invalid create list: " <> target_list)
+  })
+  use date_script <- result.try(case args.due_date {
+    None -> Ok("")
+    Some(date) -> applescript.calendar_date_script(date)
+  })
   // Build properties list
   let props = [#("name", applescript.quote_string(args.name))]
 
@@ -21,7 +32,7 @@ pub fn handle_create_todo(
   }
 
   let props = case args.due_date {
-    Some(date) -> list.append(props, [#("due date", "date \"" <> date <> "\"")])
+    Some(_) -> list.append(props, [#("due date", "requestedDate")])
     None -> props
   }
 
@@ -34,20 +45,34 @@ pub fn handle_create_todo(
   }
 
   let properties = applescript.build_properties(props)
-  let target_list = option.unwrap(args.list, "Inbox")
 
   // Build and execute AppleScript command
   let command =
-    "set newToDo to make new to do in list \""
+    date_script
+    <> "set newToDo to make new to do in list \""
     <> target_list
     <> "\" with properties "
     <> properties
     <> "\nreturn id of newToDo"
 
-  applescript.execute(applescript.tell_things(command))
-  |> result.map(fn(output) {
-    "Created todo: " <> args.name <> "\nID: " <> output
-  })
+  use output <- result.try(
+    applescript.execute_write(applescript.tell_things(command)),
+  )
+  let id = string.trim(output)
+  use _ <- result.try(
+    checks.created(id, case target_list {
+      "Inbox" -> Ok("")
+      _ ->
+        applescript.execute_write(applescript.tell_things(
+          "move ("
+          <> applescript.todo_by_id(id)
+          <> ") to list "
+          <> applescript.quote_string(target_list),
+        ))
+    }),
+  )
+  use _ <- result.try(checks.created(id, checks.verify_todo_create(id, args)))
+  Ok("Created todo: " <> args.name <> "\nID: " <> output)
 }
 
 // ===== LIST TODOS =====
@@ -59,7 +84,7 @@ pub fn handle_list_todos(args: types.ListTodosArgs) -> Result(String, String) {
   // Build AppleScript to get todos with properties
   let command = "
     set todoList to {}
-    set theList to list \"" <> location <> "\"
+    set theList to list " <> applescript.quote_string(location) <> "
     repeat with todo in to dos of theList
       try
         set todoName to name of todo
@@ -131,14 +156,18 @@ pub fn handle_get_todo(args: types.GetTodoArgs) -> Result(String, String) {
 pub fn handle_complete_todo(
   args: types.CompleteTodoArgs,
 ) -> Result(String, String) {
+  use _ <- result.try(validation.validate_id(args.id))
   let todo_ref = applescript.todo_by_id(args.id)
   let command =
     "set targetToDo to "
     <> todo_ref
     <> "\nset status of targetToDo to completed"
 
-  applescript.execute(applescript.tell_things(command))
-  |> result.map(fn(_output) { "Completed todo: " <> args.id })
+  use _ <- result.try(
+    applescript.execute_write(applescript.tell_things(command)),
+  )
+  use _ <- result.try(checks.verify_completed(args.id))
+  Ok("Completed todo: " <> args.id)
 }
 
 // ===== UPDATE TODO =====
@@ -146,6 +175,12 @@ pub fn handle_complete_todo(
 pub fn handle_update_todo(
   args: types.UpdateTodoArgs,
 ) -> Result(String, String) {
+  use _ <- result.try(validation.validate_id(args.id))
+  use date_script <- result.try(case args.new_due_date {
+    None | Some("none") -> Ok("")
+    Some(date) -> applescript.calendar_date_script(date)
+  })
+  use status <- result.try(checks.status(checks.Todo, args.id))
   let todo_ref = applescript.todo_by_id(args.id)
 
   // Build list of update commands
@@ -169,10 +204,12 @@ pub fn handle_update_todo(
 
   let commands = case args.new_due_date {
     Some("none") ->
-      list.append(commands, ["set due date of targetToDo to missing value"])
-    Some(date) ->
+      // Assigning missing value or an empty string fails date coercion (-1700).
+      // Deleting the property clears the deadline without deleting the item.
+      list.append(commands, ["delete due date of targetToDo"])
+    Some(_) ->
       list.append(commands, [
-        "set due date of targetToDo to date \"" <> date <> "\"",
+        date_script <> "set due date of targetToDo to requestedDate",
       ])
     None -> commands
   }
@@ -191,8 +228,12 @@ pub fn handle_update_todo(
   // Execute all update commands
   let command = string.join(commands, "\n")
 
-  applescript.execute(applescript.tell_things(command))
-  |> result.map(fn(_output) { "Updated todo: " <> args.id })
+  use _ <- result.try(
+    applescript.execute_write(applescript.tell_things(command)),
+  )
+  use _ <- result.try(checks.verify_todo_update(args.id, args))
+  use _ <- result.try(checks.verify_status(checks.Todo, args.id, status))
+  Ok("Updated todo: " <> args.id)
 }
 
 // ===== SEARCH TODOS =====
@@ -203,7 +244,7 @@ pub fn handle_search_todos(
   // Build AppleScript to search across active built-in lists.
   let command = "
     set allTodos to {}
-    set searchQuery to \"" <> args.query <> "\"
+    set searchQuery to " <> applescript.quote_string(args.query) <> "
 
     repeat with listName in {\"Inbox\", \"Today\", \"Anytime\", \"Upcoming\", \"Someday\"}
       try

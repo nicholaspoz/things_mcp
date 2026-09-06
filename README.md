@@ -308,22 +308,31 @@ gleam run
 gleam test
 ```
 
-The test suite includes comprehensive integration tests that:
-- Test all 17 MCP tools with real Things3 operations
-- Use unique `__TEST_*` prefixes to avoid conflicting with user data
-- Automatically clean up all test data (even if tests fail)
-- Leave no trace in your Things3 database
+`gleam test` runs offline regression tests. The AppleScript tests require macOS
+standard scripting additions but do not contact Things. Run the live suite explicitly:
 
-Test structure:
-- `test/integration_test.gleam` - Full integration test covering all 17 tools
-- `test/test_helpers/` - State tracking, assertions, and cleanup utilities
+```bash
+gleam run -m integration_test
+```
+
+The live suite exercises all 17 handlers using a new UUID namespace per group. It
+checks list and container membership, stable IDs, dates, field clearing, Unicode,
+multiline and long text, tag creation, case-insensitive tag deduplication, completion,
+and status preservation. Cleanup runs even after a handler error or test exception:
+fixture tasks and projects go to Trash, and only fixture tags and areas are deleted.
+Cleanup is verified; it never empties Trash or invokes global logging. Interrupted
+processes may still require manual cleanup using the printed UUID namespace.
+
+The suite does not create repeating templates: the supported AppleScript dictionary
+has no recurrence setter. Existing-item edits retain the direct AppleScript path and
+do not introduce a repeating-item restriction.
 
 ## Architecture
 
 The server is built using:
 
 - **mcp_toolkit** (v0.3.1) - MCP protocol implementation
-- **shellout** (v1.7) - For executing osascript commands
+- **things_applescript_ffi.erl** - Bounded direct osascript subprocess execution
 - **gleam_json** (v3.x) - JSON encoding/decoding
 - **gleam/dynamic/decode** - Type-safe argument decoding
 
@@ -339,13 +348,32 @@ The architecture follows a clean separation of concerns:
 
 ## Error Handling
 
-The server uses basic error handling that passes through raw AppleScript errors:
+All errors are returned in the MCP response with `is_error: true`. Successful
+response formats and all 17 tool schemas are unchanged.
 
-- If Things3 is not running: "Application isn't running"
-- If an item ID is not found: "Can't get ... whose id = ..."
-- If a date format is invalid: "Can't make date..."
-
-All errors are returned in the MCP response with `is_error: true`.
+- Dates must be real `YYYY-MM-DD` calendar dates (including leap-year validation).
+  Dates are constructed using local year, month, and day fields, independent of locale.
+- Creation explicitly moves the new task into the requested supported list. Writes
+  return success only after AppleScript read-back verifies requested fields and
+  membership. Updates and container moves also check that status is preserved.
+- Omitted fields remain unchanged. `new_notes: ""` and `new_tags: []` clear those
+  fields; `new_due_date: "none"` deletes the deadline property. Tag setters retain
+  Things' automatic tag creation and case-insensitive canonical-name behavior.
+- Writes and ordinary reads have a 10-second subprocess limit. Verification polls
+  reads only for up to 3 seconds per check, with a 5-second limit on prerequisite
+  reads. Output is capped at 1 MiB. The direct process is killed on timeout; Things
+  may still finish an Apple event already delivered to the application.
+- Execution failures retain the process exit code and AppleScript error code, with
+  safe explanations for common errors (missing objects, conversion, permissions,
+  timeouts, or rejected moves). Raw diagnostic text can contain item contents and
+  is omitted. Process-start failures and timeouts are reported separately.
+- A failed multi-command write can have partially applied changes. Verification
+  failures report uncertain completion; errors after successful creation include
+  the known created ID. Inspect that item before retrying. Writes are never retried
+  automatically; if creation itself times out, an ID may not be available.
+- Moving to Logbook uses Things' existing AppleScript move command. It can reject
+  the move with code 301, including for completed items on Things 3.23.4. The server
+  does not complete items or invoke global logging to force the move.
 
 ## Future Enhancements
 

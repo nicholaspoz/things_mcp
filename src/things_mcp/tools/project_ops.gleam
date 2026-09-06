@@ -4,12 +4,17 @@ import gleam/result
 import gleam/string
 import things_mcp/applescript
 import things_mcp/types
+import things_mcp/write_checks as checks
 
 // ===== CREATE PROJECT =====
 
 pub fn handle_create_project(
   args: types.CreateProjectArgs,
 ) -> Result(String, String) {
+  use area <- result.try(case args.area {
+    None -> Ok(None)
+    Some(name) -> checks.area_id_by_name(name) |> result.map(Some)
+  })
   // Build properties list
   let props = [#("name", applescript.quote_string(args.name))]
 
@@ -20,9 +25,8 @@ pub fn handle_create_project(
     None -> props
   }
 
-  let props = case args.area {
-    Some(area) ->
-      list.append(props, [#("area", "area " <> applescript.quote_string(area))])
+  let props = case area {
+    Some(area) -> list.append(props, [#("area", applescript.area_by_id(area))])
     None -> props
   }
 
@@ -34,10 +38,15 @@ pub fn handle_create_project(
     <> properties
     <> "\nreturn id of newProject"
 
-  applescript.execute(applescript.tell_things(command))
-  |> result.map(fn(output) {
-    "Created project: " <> args.name <> "\nID: " <> output
-  })
+  use output <- result.try(
+    applescript.execute_write(applescript.tell_things(command)),
+  )
+  let id = string.trim(output)
+  use _ <- result.try(checks.created(
+    id,
+    checks.verify_project_create(id, args, area),
+  ))
+  Ok("Created project: " <> args.name <> "\nID: " <> output)
 }
 
 // ===== LIST PROJECTS =====
@@ -50,7 +59,7 @@ pub fn handle_list_projects(
     Some(area) -> "
     set projectList to {}
     try
-      set theArea to area \"" <> area <> "\"
+      set theArea to area " <> applescript.quote_string(area) <> "
       repeat with proj in projects of theArea
         try
           set projID to id of proj
@@ -111,7 +120,7 @@ pub fn handle_get_project_todos(
   let command = "
     set todoList to {}
     try
-      set theProject to project \"" <> args.project <> "\"
+      set theProject to project " <> applescript.quote_string(args.project) <> "
       repeat with todo in to dos of theProject
         try
           set todoName to name of todo
