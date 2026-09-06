@@ -437,9 +437,9 @@ fn containers_and_detach(prefix: String) -> Result(Nil, String) {
   )
   // The existing AppleScript move rejects open items with error 301. Moving to
   // Logbook must not silently complete an item on the caller's behalf.
-  use _ <- result.try(expect_error(
+  use _ <- result.try(expect_error_code(
     move_ops.handle_move_todo(types.MoveTodoArgs(todo_id, "Logbook")),
-    "moving an open task to Logbook is rejected",
+    "301",
   ))
   use _ <- result.try(exact(
     "return (status of (to do id (item 1 of argv)) is open) and ((item 1 of argv) is in (id of every to do of list \"Anytime\"))",
@@ -449,16 +449,18 @@ fn containers_and_detach(prefix: String) -> Result(Nil, String) {
   use _ <- result.try(
     todo_ops.handle_complete_todo(types.CompleteTodoArgs(todo_id)),
   )
-  // The original direct AppleScript command also rejects completed items on
-  // this installation. Do not use the global logging command to force success.
-  use _ <- result.try(expect_error(
-    move_ops.handle_move_todo(types.MoveTodoArgs(todo_id, "Logbook")),
-    "moving a completed task to Logbook preserves the documented rejection",
-  ))
+  // Things versions may accept this move or reject it with code 301.
+  // Successful moves must appear in Logbook; unrelated failures fail the test.
+  use _ <- result.try(
+    case move_ops.handle_move_todo(types.MoveTodoArgs(todo_id, "Logbook")) {
+      Ok(_) -> write_checks.verify_list(todo_id, "Logbook")
+      Error(error) -> expect_error_code(Error(error), "301")
+    },
+  )
   use _ <- result.try(exact(
     "return status of (to do id (item 1 of argv)) is completed",
     [todo_id],
-    "rejected Logbook move preserves completed status",
+    "Logbook move preserves completed status",
   ))
   use _ <- result.try(
     move_ops.handle_move_todo(types.MoveTodoArgs(todo_id, "Trash")),
@@ -629,6 +631,22 @@ fn expect_error(
   case outcome {
     Error(_) -> Ok(Nil)
     Ok(_) -> Error(label <> " unexpectedly succeeded")
+  }
+}
+
+fn expect_error_code(
+  outcome: Result(a, String),
+  code: String,
+) -> Result(Nil, String) {
+  case outcome {
+    Error(error) ->
+      case string.contains(error, "AppleScript code " <> code <> "):") {
+        True -> Ok(Nil)
+        False ->
+          Error("Expected AppleScript code " <> code <> "; got: " <> error)
+      }
+    Ok(_) ->
+      Error("Expected AppleScript code " <> code <> "; operation succeeded")
   }
 }
 

@@ -21,6 +21,11 @@ type Unit {
 @external(erlang, "erlang", "monotonic_time")
 fn now(unit: Unit) -> Int
 
+type Lookup {
+  Item
+  ListOnly
+}
+
 type Check {
   Equal(String, String)
   Missing(String)
@@ -30,7 +35,7 @@ type Check {
 }
 
 pub fn status(kind: Kind, id: String) -> Result(String, String) {
-  read(kind, id, "return status of targetItem as string", [], 5000, False)
+  read(kind, id, "return status of targetItem as string", [], 5000, Item, False)
   |> result.map(string.trim)
 }
 
@@ -140,7 +145,19 @@ fn optional(
 fn verify(kind: Kind, id: String, checks: List(Check)) -> Result(Nil, String) {
   let #(lines, args) = list.fold(checks, #([], []), build_check)
   let body = string.join(list.append(lines, ["return \"verified\""]), "\n")
-  poll(kind, id, body, args, now(Millisecond) + 3000)
+  // List membership is checked through the list itself, including Trash.
+  let lookup = case
+    list.any(checks, fn(check) {
+      case check {
+        InList(_) -> False
+        _ -> True
+      }
+    })
+  {
+    True -> Item
+    False -> ListOnly
+  }
+  poll(kind, id, body, args, lookup, now(Millisecond) + 3000)
   |> result.map_error(fn(error) {
     "Things reported success but verification failed for ID: "
     <> id
@@ -154,6 +171,7 @@ fn poll(
   id: String,
   body: String,
   args: List(String),
+  lookup: Lookup,
   deadline: Int,
 ) -> Result(Nil, String) {
   let remaining = deadline - now(Millisecond)
@@ -163,7 +181,15 @@ fn poll(
         "Things write verification timed out; completion is uncertain; do not retry automatically",
       )
     False -> {
-      use output <- result.try(read(kind, id, body, args, remaining, True))
+      use output <- result.try(read(
+        kind,
+        id,
+        body,
+        args,
+        remaining,
+        lookup,
+        True,
+      ))
       case string.trim(output) {
         "verified" -> Ok(Nil)
         "pending" -> {
@@ -171,7 +197,7 @@ fn poll(
             100,
             int.max(0, deadline - now(Millisecond)),
           ))
-          poll(kind, id, body, args, deadline)
+          poll(kind, id, body, args, lookup, deadline)
         }
         _ ->
           Error(
@@ -188,6 +214,7 @@ fn read(
   body: String,
   args: List(String),
   timeout: Int,
+  lookup: Lookup,
   wait_for_visibility: Bool,
 ) -> Result(String, String) {
   let kind = case kind {
@@ -196,8 +223,8 @@ fn read(
   }
   // List membership checks must also work for Trash, whose items are absent
   // from Things' application-level collection.
-  let lookup = case string.contains(body, "targetItem") {
-    True -> {
+  let lookup = case lookup {
+    Item -> {
       let target = kind <> " id (item 1 of argv)"
       let visibility = case wait_for_visibility {
         True -> "if not (exists (" <> target <> ")) then return \"pending\"\n"
@@ -205,7 +232,7 @@ fn read(
       }
       visibility <> "set targetItem to " <> target <> "\n"
     }
-    False -> ""
+    ListOnly -> ""
   }
   run(lookup <> body, [id, ..args], timeout)
 }
