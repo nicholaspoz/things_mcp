@@ -7,7 +7,7 @@
     <key>CFBundleExecutable</key><string>ThingsCallback</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleVersion</key><string>1</string>
-    <key>LSUIElement</key><true/>
+    <key>LSBackgroundOnly</key><true/>
     <key>NSHighResolutionCapable</key><true/>
     <key>CFBundleURLTypes</key>
     <array><dict>

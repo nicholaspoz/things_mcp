@@ -2,7 +2,7 @@ import AppKit
 import Darwin
 import Foundation
 
-// URL-event relay only. Gleam owns Things payloads, tokens, and write semantics.
+// Native URL transport only. Gleam owns Things payloads, tokens, and write semantics.
 struct Callback {
     let nonce: String
     let status: String
@@ -61,6 +61,75 @@ func callbackRoot() -> Int32 {
     return openPrivateDirectory(application, "callbacks")
 }
 
+func readDispatchURL(request: Int32) -> URL? {
+    let input = openat(request, "request.url", O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC)
+    guard input >= 0 else { return nil }
+    defer { close(input) }
+    var metadata = stat()
+    let limit = 1_048_576
+    guard fstat(input, &metadata) == 0,
+          (metadata.st_mode & S_IFMT) == S_IFREG,
+          metadata.st_uid == getuid(), (metadata.st_mode & 0o077) == 0,
+          metadata.st_nlink == 1, metadata.st_size > 0,
+          metadata.st_size <= limit else { return nil }
+    var data = Data()
+    var buffer = [UInt8](repeating: 0, count: 16_384)
+    while true {
+        let count = read(input, &buffer, buffer.count)
+        if count < 0 && errno == EINTR { continue }
+        guard count >= 0, data.count + count <= limit else { return nil }
+        if count == 0 { break }
+        data.append(contentsOf: buffer.prefix(count))
+    }
+    guard let text = String(data: data, encoding: .utf8),
+          let parts = URLComponents(string: text), parts.scheme == "things",
+          parts.host == nil || parts.host == "",
+          parts.user == nil, parts.password == nil, parts.port == nil,
+          parts.fragment == nil, parts.path == "/json" else { return nil }
+    return parts.url
+}
+
+func loadDispatchURL(path: String) -> URL? {
+    let file = URL(fileURLWithPath: path)
+    let nonce = file.deletingLastPathComponent().lastPathComponent
+    let expected = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent("Library/Caches/things-mcp/callbacks")
+        .appendingPathComponent(nonce).appendingPathComponent("request.url").path
+    guard path == expected, nonce.utf8.count == 32,
+          nonce.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }) else { return nil }
+    let root = callbackRoot()
+    guard root >= 0 else { return nil }
+    defer { close(root) }
+    let request = openPrivateDirectory(root, nonce)
+    guard request >= 0 else { return nil }
+    defer { close(request) }
+    return readDispatchURL(request: request)
+}
+
+func dispatchInBackground(path: String) -> Bool {
+    guard let url = loadDispatchURL(path: path),
+          let applicationURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.culturedcode.ThingsMac") else { return false }
+    let configuration = NSWorkspace.OpenConfiguration()
+    configuration.activates = false
+    configuration.addsToRecentItems = false
+    configuration.promptsUserIfNeeded = false
+    var finished = false
+    var succeeded = false
+    NSWorkspace.shared.open([url], withApplicationAt: applicationURL, configuration: configuration) { application, error in
+        DispatchQueue.main.async {
+            succeeded = application != nil && error == nil
+            finished = true
+        }
+    }
+    // Pump the main run loop so completion cannot deadlock on the main queue.
+    // This only acknowledges URL delivery; Gleam still waits for Things' callback.
+    let deadline = ProcessInfo.processInfo.systemUptime + 8
+    while !finished && ProcessInfo.processInfo.systemUptime < deadline {
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.02))
+    }
+    return finished && succeeded
+}
+
 @discardableResult
 func persist(_ callback: Callback, root: Int32) -> Bool {
     let request = openPrivateDirectory(root, callback.nonce)
@@ -100,6 +169,11 @@ func persist(_ callback: Callback, root: Int32) -> Bool {
 }
 
 final class ApplicationDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        // Reapply after AppKit has processed the bundle's launch configuration.
+        NSApplication.shared.setActivationPolicy(.prohibited)
+    }
+
     func application(_ application: NSApplication, open urls: [URL]) {
         let root = callbackRoot()
         guard root >= 0 else { return }
@@ -118,6 +192,9 @@ func require(_ condition: @autoclosure () -> Bool, _ message: String) {
 }
 
 func selfTest() throws {
+    if URL(fileURLWithPath: CommandLine.arguments[0]).lastPathComponent == "ThingsURLDispatch" {
+        require(Bundle.main.bundleIdentifier != "local.things-mcp.callback", "dispatcher has no relay bundle identity")
+    }
     let nonce = "0123456789abcdef0123456789abcdef"
     let prefix = "things-mcp-callback://" + nonce
     let valid = Callback.parse(URL(string: prefix + "/success?x-things-ids=abc%2Cdef&note=a%2Bb%20c")!)!
@@ -141,6 +218,26 @@ func selfTest() throws {
     let requestURL = rootURL.appendingPathComponent(nonce)
     try FileManager.default.createDirectory(at: requestURL, withIntermediateDirectories: false,
                                             attributes: [.posixPermissions: 0o700])
+    let request = openPrivateDirectory(root, nonce)
+    require(request >= 0, "dispatch test request directory")
+    defer { close(request) }
+    let urlFile = requestURL.appendingPathComponent("request.url")
+    let sampleURL = "things:///json?data=%5B%5D&auth-token=private-test-value"
+    FileManager.default.createFile(atPath: urlFile.path, contents: Data(sampleURL.utf8), attributes: [.posixPermissions: 0o600])
+    require(readDispatchURL(request: request)?.absoluteString == sampleURL, "private URL read preserves encoding")
+    try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: urlFile.path)
+    require(readDispatchURL(request: request) == nil, "publicly readable URL rejected")
+    try FileManager.default.removeItem(at: urlFile)
+    try FileManager.default.createSymbolicLink(at: urlFile, withDestinationURL: rootURL)
+    require(readDispatchURL(request: request) == nil, "symlink URL rejected")
+    try FileManager.default.removeItem(at: urlFile)
+    FileManager.default.createFile(atPath: urlFile.path, contents: Data("https://example.com/".utf8), attributes: [.posixPermissions: 0o600])
+    require(readDispatchURL(request: request) == nil, "unrelated URL scheme rejected")
+    try FileManager.default.removeItem(at: urlFile)
+    FileManager.default.createFile(atPath: urlFile.path, contents: Data(repeating: 65, count: 1_048_577), attributes: [.posixPermissions: 0o600])
+    require(readDispatchURL(request: request) == nil, "oversized URL file rejected")
+    try FileManager.default.removeItem(at: urlFile)
+    require(loadDispatchURL(path: urlFile.path) == nil, "dispatch path outside callback root rejected")
     require(!persist(valid, root: root), "missing pending ignored")
     let markerURL = requestURL.appendingPathComponent("pending")
     FileManager.default.createFile(atPath: markerURL.path, contents: Data(), attributes: [.posixPermissions: 0o600])
@@ -161,15 +258,30 @@ func selfTest() throws {
     print("Callback relay self-tests passed")
 }
 
-if CommandLine.arguments.contains("--self-test") {
+if CommandLine.arguments == [CommandLine.arguments[0], "--self-test"] {
     do { try selfTest() } catch {
         FileHandle.standardError.write(Data("FAIL: callback self-test I/O error\n".utf8))
         exit(1)
     }
-} else {
+} else if CommandLine.arguments.count == 3 && CommandLine.arguments[1] == "--dispatch" {
+    // Only the unbundled executable dispatches; it must not compete with the
+    // persistent relay's registered URL identity or acquire keyboard focus.
+    if Bundle.main.bundleIdentifier == "local.things-mcp.callback" {
+        FileHandle.standardError.write(Data("Use the unbundled Things URL dispatcher\n".utf8))
+        exit(1)
+    }
+    NSApplication.shared.setActivationPolicy(.prohibited)
+    if !dispatchInBackground(path: CommandLine.arguments[2]) {
+        FileHandle.standardError.write(Data("Things URL delivery failed or timed out\n".utf8))
+        exit(1)
+    }
+} else if CommandLine.arguments.count == 1 {
     let application = NSApplication.shared
     let delegate = ApplicationDelegate()
     application.delegate = delegate
     application.setActivationPolicy(.prohibited)
     withExtendedLifetime(delegate) { application.run() }
+} else {
+    FileHandle.standardError.write(Data("Invalid callback helper arguments\n".utf8))
+    exit(1)
 }

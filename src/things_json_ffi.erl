@@ -37,7 +37,11 @@ auth_token() ->
     case os:getenv("THINGS_AUTH_TOKEN") of
         false ->
             Path = case os:getenv("THINGS_AUTH_TOKEN_FILE") of
-                false -> filename:join([os:getenv("HOME"), ".config", "things-mcp", "auth-token"]);
+                false ->
+                    case filelib:is_regular(".things3_token.txt") of
+                        true -> ".things3_token.txt";
+                        false -> filename:join([os:getenv("HOME"), ".config", "things-mcp", "auth-token"])
+                    end;
                 P -> P
             end,
             case file:read_file(Path) of
@@ -62,24 +66,24 @@ validate_token(Data) ->
 dispatch(Dir, Url) ->
     App = case os:getenv("THINGS_CALLBACK_APP") of
         false -> filename:absname("build/ThingsCallback.app");
-        P -> P
+        P -> filename:absname(P)
     end,
-    case filelib:is_dir(App) of
+    Helper = filename:join(filename:dirname(App), "ThingsURLDispatch"),
+    case filelib:is_dir(App) andalso filelib:is_regular(Helper) of
         false -> {error, <<"Build the callback relay first: sh scripts/build_callback.sh">>};
         true ->
             case run(<<"/usr/bin/open">>, [<<"-g">>, unicode:characters_to_binary(App)], 10000) of
-                {ok, _} -> dispatch_url(Dir, Url);
+                {ok, _} -> dispatch_url(Dir, Url, Helper);
                 _ -> {error, <<"Could not start the Things callback relay; no write dispatched">>}
             end
     end.
 
-dispatch_url(Dir, Url) ->
+dispatch_url(Dir, Url, Helper) ->
     Path = filename:join(Dir, <<"request.url">>),
     case private_write(Path, Url) of
         ok ->
             %% Pass only the private file path in argv, never a URL containing a token.
-            Script = unicode:characters_to_binary("on run argv\nopen location (read POSIX file (item 1 of argv) as «class utf8»)\nend run"),
-            Outcome = run(<<"/usr/bin/osascript">>, [<<"-e">>, Script, Path], 10000),
+            Outcome = run(unicode:characters_to_binary(Helper), [<<"--dispatch">>, Path], 10000),
             file:delete(Path),
             case Outcome of
                 {ok, _} -> {ok, nil};
@@ -132,7 +136,7 @@ terminate(Port) ->
     case erlang:port_info(Port, os_pid) of
         {os_pid, Pid} ->
             %% Stop the direct executable before dropping the port. In production
-            %% these are osascript/open, not an intervening shell process.
+            %% these are osascript/open/the native helper, not an intervening shell.
             os:cmd("/bin/kill -KILL " ++ integer_to_list(Pid));
         undefined -> ok
     end,

@@ -9,4 +9,6 @@ xcrun swiftc -module-cache-path "$project_root/build/swift-module-cache" \
     -framework AppKit -O "$project_root/native/ThingsCallback.swift" \
     -o "$bundle/Contents/MacOS/ThingsCallback"
 "$bundle/Contents/MacOS/ThingsCallback" --self-test
+cp "$bundle/Contents/MacOS/ThingsCallback" "$project_root/build/ThingsURLDispatch"
+"$project_root/build/ThingsURLDispatch" --self-test
 printf '%s\n' "$bundle"
