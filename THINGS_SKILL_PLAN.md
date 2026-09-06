@@ -1,20 +1,21 @@
-# Plan: Things3 agent skill
+# Plan: Things3 JSON write refactor
 
-Replace the Gleam/Erlang MCP server with a small local skill. Preserve Inbox triage and the current 17 tools' workflows. This is a plan only; keep the server until the replacement is verified.
+Migrate supported writes from AppleScript to Things' JSON developer interface while retaining the Gleam/Erlang MCP server. Keep plain AppleScript for reads. Treat the migration as a refactor: preserve the existing 17 tools, their behavior, and their integration tests wherever possible. This document is a plan; implementation has not started.
 
 ## Design
 
-- **Skill:** `SKILL.md` explains commands, ID lookup, supported operations, and result handling.
-- **Writes:** Python accepts native Things JSON from stdin or a file, validates it, URL-encodes it, and dispatches the `json` command. Include dry-run. Pydantic is an option for write validation only.
-- **Reads:** fixed AppleScript queries run through `osascript`. Foundation's built-in `NSJSONSerialization` produces JSON on stdout for the agent. No PyObjC, JXA, or Python read validation.
-- **Inputs:** `osascript reads.applescript "Inbox" "open"` passes strings to `on run argv`. Check arguments and pass values as data, without generating script source.
-- **Execution:** Python may invoke `osascript` with `subprocess.run` for one entry point, timeouts, and error handling. Read JSON passes through unchanged; parse it only when needed for internal lookup or write verification.
+- **Agent interface:** preserve MCP registration, tool names, input schemas, handler signatures, and successful response formats, including created IDs. The installed Inbox triage skill continues to use MCP.
+- **Writes:** Gleam builds typed Things operations, validates them, encodes JSON and URL parameters, loads the authorization token locally, and dispatches the `json` command through a shared backend for the existing write tools. Keep encoding and validation separate from dispatch so payloads can be tested without changing Things data.
+- **Reads:** plain AppleScript queries run through `osascript`, invoked by Gleam. Preserve current read behavior and output during the write refactor.
+- **Read helpers:** if extracting queries into `.applescript` files, pass inputs through `on run argv`, validate them, and treat values as data. Keep that extraction separate from write migration; it is not a prerequisite.
+- **Execution:** put callback handling, timeouts, ID recovery, and read-back verification behind the write backend. Existing handlers remain synchronous from the caller's perspective: a successful response must mean the operation has completed, so an immediate subsequent read sees the result. Launching a URL alone is not success.
+- **Packaging:** no skill replacement, plugin migration, or language/runtime rewrite is needed for this refactor.
 
-Use [ThingsJSONCoder](https://github.com/culturedcode/ThingsJSONCoder/blob/master/ThingsJSON.swift) as a reference for Python write models, field names, nesting, and payload fixtures. Cross-check current API documentation and add semantic validation, such as requiring IDs for updates.
+Use [ThingsJSONCoder](https://github.com/culturedcode/ThingsJSONCoder/blob/master/ThingsJSON.swift) as a reference for Gleam write types, field names, nesting, and payload fixtures. Cross-check current API documentation and add semantic validation, such as requiring IDs for updates. The Swift implementation is a reference, not a runtime dependency.
 
 ## Scope
 
-One row per existing MCP tool, checked against the [server registrations](src/things_mcp.gleam) and [input schemas](src/things_mcp/types.gleam). This covers all 17 tools; runtime parity remains an implementation acceptance check. Read output becomes JSON while preserving the available data.
+One row per existing MCP tool, checked against the [server registrations](src/things_mcp.gleam) and [input schemas](src/things_mcp/types.gleam). This covers all 17 tools; runtime parity remains an implementation acceptance check. Internal write transport changes; existing MCP inputs and outputs remain compatible. The mappings below are candidates to verify against Things behavior.
 
 | Agent operation | Existing MCP tool | Replacement | Required behavior for parity |
 | --- | --- | --- | --- |
@@ -36,31 +37,42 @@ One row per existing MCP tool, checked against the [server registrations](src/th
 | Detach a task from its project | `remove_todo_from_project` | AppleScript fallback | By task ID, clear project membership without deleting either object. |
 | Detach a project from its area | `remove_project_from_area` | AppleScript fallback | By project ID, clear area membership without deleting either object. |
 
-Retain an AppleScript fallback wherever JSON cannot reproduce an existing supported behavior, including tag handling or repeating-item restrictions. The existing Inbox triage prompt becomes skill instructions using these operations.
+Retain an AppleScript fallback wherever JSON cannot reproduce an existing supported behavior, including tag handling or repeating-item restrictions. Select fallbacks for known unsupported cases before dispatch; never retry an uncertain JSON write through AppleScript. Keep the existing Inbox triage skill using the same MCP tools.
 
-Later additions: batch operations, reminders, checklists, and project templates with headings. Initially exclude recurrence management, general tag/area administration, private APIs/database access, UI automation, and remote MCP-only clients.
+Batching and additional JSON functionality (reminders, checklists, and project templates with headings) are optional follow-ups after the feature-parity refactor is complete. They impose no implementation, API, or test requirements on this refactor.
+
+Exclude recurrence management, general tag/area administration, private APIs/database access, UI automation, and new remote hosting from this work. Preserve existing MCP client compatibility.
 
 ## Implementation
 
-1. Build one parameterized read helper. Check JSON output for Unicode, multiline notes, dates, nulls, and empty collections.
-2. Build the Python write runner. Validate payloads, load the authorization token locally, and establish callbacks or read-back verification.
-3. Cover current workflows and add the skill instructions. Use stable IDs, distinguish scheduling from deadlines, and preserve omitted versus explicitly cleared fields.
-4. Test with disposable Things items, including invalid writes, partial failures, and duplicate names. The existing integration suite mutates Things data.
-5. Update the installed Inbox triage skill and disable the MCP registration after parity checks. Retain a rollback path before removing server code.
+1. Establish a baseline with the existing integration suite and record pre-existing failures. Identify the handler inputs, response formats, and immediate-read expectations it exercises. Leave production read code and the test harness in place.
+2. Build the shared Gleam JSON encoder, validator, and dispatcher. Resolve authorization, callbacks, created-ID recovery, and bounded completion/verification before switching handlers. Prove one create and one update with disposable items.
+3. Migrate write handlers incrementally through the shared backend, preserving signatures, response formats, stable IDs, scheduling versus deadlines, and omitted versus explicitly cleared fields. Keep documented fallbacks for unsupported operations.
+4. Run the existing integration suite against migrated handlers. Add focused tests for transport-specific risks and behavior not covered by the baseline; do not rewrite existing expectations to accommodate regressions.
+5. Remove obsolete AppleScript write code only after parity is verified; retain necessary fallbacks and the MCP registration.
+
+## Test compatibility
+
+- Target zero changes to existing integration test calls and assertions. The suite calls Gleam handlers directly, checks created responses for `ID:`, and reads state immediately after mutations; preserve all three contracts.
+- Keep waiting and verification inside production write code. Do not add sleeps or polling to existing tests to hide asynchronous dispatch behavior.
+- The Things URL authorization token is new environment setup, not a reason to change the tool signatures or pass secrets through test arguments.
+- Existing tests are a regression baseline, not proof of full parity: some assertions check only success/text, and edge-case assertion results are currently discarded. If needed, fix assertion propagation narrowly without changing expected behavior.
+- Add tests for JSON encoding and escaping, Unicode/multiline notes, dates, omitted/cleared fields, invalid IDs, authorization failures, timeout/uncertain results, and duplicate names.
+- Integration tests mutate real Things data and use disposable test items with cleanup. Run them during implementation, not as part of this plan-only update.
 
 ## Resolve during implementation
 
-- How to receive callbacks and recover created IDs, including nested tasks.
+- How to receive callbacks in the Gleam/Erlang process and recover created IDs without relying on ambiguous name matching.
 - Which fields can be verified through supported reads; exact clear-field, detach, repeating-item, and Logbook behavior.
-- Python dependency installation and whether Pydantic earns its cost.
+- Where to store/load the Things authorization token and how to redact it from diagnostics.
+- Callback completion versus read visibility, bounded verification, partial failure behavior, and practical payload limits.
 
-Report dispatched, verified, failed, and uncertain outcomes distinctly. Do not expose tokens or blindly retry uncertain creates. Preserve notes and local calendar dates; do not silently omit failed reads.
+Distinguish dispatched, completed/verified, failed, and uncertain outcomes internally. Preserve existing successful response formats; return a clear error for uncertain completion instead of claiming success. Do not expose tokens or blindly retry uncertain writes. Preserve notes and local calendar dates; do not silently omit failed reads used for verification.
 
-Estimated effort: 2–4 days for a useful hybrid; callback handling and full parity may extend this.
+Re-estimate effort after the callback and ID-recovery proof of concept. These are the main unknowns for preserving synchronous behavior.
 
 ## References
 
 - [Things JSON command](https://culturedcode.com/things/support/articles/2803573/#for-developers)
 - [Things AppleScript commands](https://culturedcode.com/things/support/articles/4562654/)
-- [Foundation JSON serialization](https://developer.apple.com/documentation/foundation/jsonserialization)
-- [Pydantic models](https://docs.pydantic.dev/latest/concepts/models/)
+- [ThingsJSONCoder reference](https://github.com/culturedcode/ThingsJSONCoder/blob/master/ThingsJSON.swift)
