@@ -22,6 +22,27 @@ Implement one narrow stage, request an independent adversarial review, address c
 - Runtime tests on 3.23.4 confirm deadline clearing, tag/text fallbacks, status preservation, container moves, detachment, and the existing direct-Logbook-move rejection. Keep Logbook behavior documented as an observed version-specific limitation rather than a universal API rule.
 - Batching, new tools and expanded JSON functionality remain deferred. No implementation change was needed for this upgrade.
 
+## Heading creation follow-up
+
+Tested eight distinct cases on Things 3.23.4 on 2026-09-06. These were disposable smoke tests; no heading tool or production behavior was added.
+
+| Payload case | Headings recognized |
+| --- | --- |
+| New project containing three headings (positive control) | 3/3 |
+| Existing project update: heading first in `items` | 0/1 |
+| Heading in the middle | 0/1 |
+| Heading last | 0/1 |
+| Three consecutive headings | 0/3 |
+| Three headings interleaved with new tasks | 0/3 |
+| Heading with its `operation` omitted | 0/1 |
+| Heading between references to existing tasks | 0/1 |
+
+- All seven updates returned successful callbacks, but neither candidate headings nor nested new tasks took effect. Original task membership, project title, notes, and open status were preserved.
+- Public AppleScript does not expose headings. Verification compared task ordering: two tasks targeting a candidate heading were separated by a task targeting a nonexistent heading. The positive control grouped the two correctly; every update case behaved like the nonexistent heading.
+- This supports treating project `items` as ignored on update, consistent with the [JSON documentation](https://culturedcode.com/things/support/articles/2803573/#for-developers), which defines it as create-only. Only `create` and `update` operations are documented, and heading updates are unsupported. The separate `update-project` URL command offers no heading-creation parameter.
+- The supported alternative for existing projects is Shortcuts' [Create Heading action](https://culturedcode.com/things/support/articles/9596775/#create-heading), which accepts a title and project and returns a heading. A Shortcuts integration remains deferred; JSON investigation is complete.
+- Cleanup verification found no active projects matching the exact smoke-test fixture names or earlier heading-probe name; matching projects were in Trash. Temporary payloads, results, scripts, and compiled smoke-test modules were removed after recording this evidence.
+
 ## Baseline evidence
 
 - Original `gleam test` cannot access macOS app services inside the sandbox; run integration tests with local app access.
