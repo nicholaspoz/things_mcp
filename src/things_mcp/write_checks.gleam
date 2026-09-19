@@ -111,6 +111,10 @@ pub fn verify_completed(id: String) -> Result(Nil, String) {
   verify(Todo, id, [Equal("status as string", "completed")])
 }
 
+pub fn verify_project_completed(id: String) -> Result(Nil, String) {
+  verify(Project, id, [Equal("status as string", "completed")])
+}
+
 pub fn verify_list(id: String, target: String) -> Result(Nil, String) {
   verify(Todo, id, [InList(target)])
 }

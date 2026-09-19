@@ -22,6 +22,7 @@ pub fn main() {
   updates_clear_fields_and_complete_case()
   disposable_container_moves_and_detach_case()
   tags_and_long_text_case()
+  complete_project_case()
   scoped("verification failures", verification_failures)
 }
 
@@ -106,6 +107,10 @@ pub fn updates_clear_fields_and_complete_case() {
 
 pub fn disposable_container_moves_and_detach_case() {
   scoped("containers and detach", containers_and_detach)
+}
+
+pub fn complete_project_case() {
+  scoped("complete project", complete_project)
 }
 
 pub fn tags_and_long_text_case() {
@@ -583,6 +588,46 @@ fn tags_and_long_text(prefix: String) -> Result(Nil, String) {
   )
 }
 
+fn complete_project(prefix: String) -> Result(Nil, String) {
+  use project <- result.try(
+    create_project(types.CreateProjectArgs(prefix <> "to complete", None, None)),
+  )
+  use task <- result.try(
+    create_todo(types.CreateTodoArgs(
+      prefix <> "child task",
+      None,
+      None,
+      None,
+      Some("Anytime"),
+    )),
+  )
+  use _ <- result.try(
+    move_ops.handle_move_todo_to_project(types.MoveTodoToProjectArgs(
+      task,
+      project,
+    )),
+  )
+  use _ <- result.try(
+    project_ops.handle_complete_project(types.CompleteProjectArgs(project)),
+  )
+  use _ <- result.try(exact(
+    "return status of (project id (item 1 of argv)) is completed",
+    [project],
+    "complete_project returns only after completed status is visible",
+  ))
+  use _ <- result.try(exact(
+    "return status of (to do id (item 1 of argv)) is completed",
+    [task],
+    "completing a project completes its open todos",
+  ))
+  expect_error(
+    project_ops.handle_complete_project(types.CompleteProjectArgs(
+      prefix <> "missing",
+    )),
+    "complete_project missing ID",
+  )
+}
+
 fn create_todo(args: types.CreateTodoArgs) -> Result(String, String) {
   use output <- result.try(todo_ops.handle_create_todo(args))
   created_id(output)
@@ -665,7 +710,12 @@ end if
 end repeat
 end repeat
 repeat with fixtureID in fixtureTodos
+-- Completed projects surface in Logbook as to dos; moving them as a to do silently does nothing.
+try
+move (project id (contents of fixtureID)) to list \"Trash\"
+on error
 move (to do id (contents of fixtureID)) to list \"Trash\"
+end try
 end repeat
 set fixtureProjects to {}
 set fixtureNames to name of every project

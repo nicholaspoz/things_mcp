@@ -52,6 +52,7 @@ fn build_server() -> mcp_toolkit.Server {
   |> register_create_project()
   |> register_list_projects()
   |> register_get_project_todos()
+  |> register_complete_project()
   // Register utility tools
   |> register_list_tags()
   |> register_list_areas()
@@ -184,6 +185,29 @@ fn register_complete_todo(builder: mcp_toolkit.Builder) -> mcp_toolkit.Builder {
     tool,
     types.decode_complete_todo_args(),
     handle_complete_todo_wrapper,
+  )
+}
+
+fn register_complete_project(
+  builder: mcp_toolkit.Builder,
+) -> mcp_toolkit.Builder {
+  let assert Ok(schema) = mcp.tool_input_schema(types.complete_project_schema)
+
+  let tool =
+    mcp.Tool(
+      name: "complete_project",
+      input_schema: schema,
+      description: Some(
+        "Mark a project as completed in Things3 by stable ID. Things also marks every open todo in the project as completed, so confirm with the user before calling this on a project with open todos.",
+      ),
+      annotations: None,
+    )
+
+  mcp_toolkit.add_tool(
+    builder,
+    tool,
+    types.decode_complete_project_args(),
+    handle_complete_project_wrapper,
   )
 }
 
@@ -347,6 +371,42 @@ fn handle_complete_todo_wrapper(
   case request.arguments {
     Some(args) -> {
       case todo_ops.handle_complete_todo(args) {
+        Ok(output) ->
+          Ok(mcp.CallToolResult(
+            meta: None,
+            content: [
+              mcp.TextToolContent(mcp.TextContent(
+                type_: "text",
+                text: output,
+                annotations: None,
+              )),
+            ],
+            is_error: None,
+          ))
+        Error(err) ->
+          Ok(mcp.CallToolResult(
+            meta: None,
+            content: [
+              mcp.TextToolContent(mcp.TextContent(
+                type_: "text",
+                text: err,
+                annotations: None,
+              )),
+            ],
+            is_error: Some(True),
+          ))
+      }
+    }
+    None -> Error("No arguments provided")
+  }
+}
+
+fn handle_complete_project_wrapper(
+  request: mcp.CallToolRequest(types.CompleteProjectArgs),
+) -> Result(mcp.CallToolResult, String) {
+  case request.arguments {
+    Some(args) -> {
+      case project_ops.handle_complete_project(args) {
         Ok(output) ->
           Ok(mcp.CallToolResult(
             meta: None,

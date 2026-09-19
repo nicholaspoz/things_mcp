@@ -4,6 +4,7 @@ import gleam/result
 import gleam/string
 import things_mcp/applescript
 import things_mcp/types
+import things_mcp/validation
 import things_mcp/write_checks as checks
 
 // ===== CREATE PROJECT =====
@@ -165,4 +166,23 @@ fn filter_by_status(output: String, status: String) -> String {
       |> string.join("\n")
     _ -> output
   }
+}
+
+// ===== COMPLETE PROJECT =====
+
+pub fn handle_complete_project(
+  args: types.CompleteProjectArgs,
+) -> Result(String, String) {
+  use _ <- result.try(validation.validate_id(args.id))
+  let project_ref = applescript.project_by_id(args.id)
+  let command =
+    "set targetProject to "
+    <> project_ref
+    <> "\nset status of targetProject to completed"
+
+  use _ <- result.try(
+    applescript.execute_write(applescript.tell_things(command)),
+  )
+  use _ <- result.try(checks.verify_project_completed(args.id))
+  Ok("Completed project: " <> args.id)
 }

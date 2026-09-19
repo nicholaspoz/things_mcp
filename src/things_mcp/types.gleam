@@ -155,6 +155,28 @@ pub const complete_todo_schema = "{
   \"required\": [\"id\"]
 }"
 
+// ===== COMPLETE PROJECT =====
+
+pub type CompleteProjectArgs {
+  CompleteProjectArgs(id: String)
+}
+
+pub fn decode_complete_project_args() -> decode.Decoder(CompleteProjectArgs) {
+  use id <- decode.field("id", decode.string)
+  decode.success(CompleteProjectArgs(id: id))
+}
+
+pub const complete_project_schema = "{
+  \"type\": \"object\",
+  \"properties\": {
+    \"id\": {
+      \"type\": \"string\",
+      \"description\": \"Stable Things ID of the project to mark as complete\"
+    }
+  },
+  \"required\": [\"id\"]
+}"
+
 // ===== UPDATE TODO =====
 
 pub type UpdateTodoArgs {

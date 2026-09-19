@@ -13,11 +13,12 @@ An MCP (Model Context Protocol) server for interacting with Things3 task manager
 - **update_todo** - Update a todo's properties (name, notes, due date, tags) by stable ID
 - **search_todos** - Search for todos by name and return stable IDs
 
-### Project Operations (3 tools)
+### Project Operations (4 tools)
 
 - **create_project** - Create a new project with optional notes and area
 - **list_projects** - List all projects with optional area filter, including stable IDs
 - **get_project_todos** - Get all todos within a specific project, including stable todo IDs
+- **complete_project** - Mark a project as completed by stable ID (Things also completes its open todos)
 
 ### Utility Operations (2 tools)
 
@@ -161,6 +162,16 @@ Tools that target existing items use stable Things IDs, not display names. Use `
   "id": "abc123" // required (stable todo ID from list_todos or search_todos)
 }
 ```
+
+### complete_project
+
+```json
+{
+  "id": "abc123" // required (stable project ID from list_projects)
+}
+```
+
+Completing a project also marks all of its open todos as completed.
 
 ### update_todo
 
@@ -339,7 +350,7 @@ The server is built using:
 The architecture follows a clean separation of concerns:
 
 1. **applescript.gleam** - Low-level AppleScript execution via osascript
-2. **types.gleam** - Type definitions, JSON schemas, and decoders for all 17 tools
+2. **types.gleam** - Type definitions, JSON schemas, and decoders for all 18 tools
 3. **todo_ops.gleam** - Business logic for todo operations (6 tools)
 4. **project_ops.gleam** - Business logic for project operations (3 tools)
 5. **list_ops.gleam** - Business logic for utility operations (2 tools)
